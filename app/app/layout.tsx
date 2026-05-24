@@ -1,14 +1,25 @@
+import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/app-shell/sidebar";
 import { Topbar } from "@/components/app-shell/topbar";
+import { getCurrentUser } from "@/lib/supabase/auth";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  // If Supabase is configured, require a user. In preview mode (no env vars),
+  // fall back to an "Operator" placeholder so the UI is browsable.
+  let user = { name: "Operator", initials: "OP", avatarUrl: null as string | null };
+  if (isSupabaseConfigured()) {
+    const current = await getCurrentUser();
+    if (!current) redirect("/login");
+    user = { name: current.name, initials: current.initials, avatarUrl: current.avatarUrl ?? null };
+  }
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar />
+        <Topbar user={user} />
         <main className="flex-1 relative">
-          {/* Subtle grid bg behind content */}
           <div
             className="pointer-events-none absolute inset-0 opacity-[0.4]"
             style={{

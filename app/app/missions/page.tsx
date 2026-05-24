@@ -1,29 +1,38 @@
-import { Plus, Calendar, Flame, ArrowRight, Target as TargetIcon } from "lucide-react";
+import { redirect } from "next/navigation";
+import { Flame, Target as TargetIcon } from "lucide-react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Progress, SegmentedProgress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Button } from "@/components/ui/button";
 import { MissionChecklist } from "@/components/dashboard/mission-checklist";
 import { HabitStrip } from "@/components/dashboard/habit-strip";
 import { StreakHeatmap } from "@/components/charts/streak-heatmap";
-import { MOCK_MISSIONS, MOCK_HABITS, MOCK_DISCIPLINE } from "@/lib/mock-data";
+import { MissionActions } from "@/components/missions/mission-actions";
+import { getCurrentUser } from "@/lib/supabase/auth";
+import { getMissions, getHabits, getDisciplineDays } from "@/lib/supabase/queries";
+import { computeDashboardSummary } from "@/lib/discipline";
 
-export default function MissionsPage() {
-  const completedToday = MOCK_MISSIONS.filter(m => m.completed).length;
-  const completionPct = Math.round((completedToday / MOCK_MISSIONS.length) * 100);
+export const dynamic = "force-dynamic";
+
+export default async function MissionsPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const [missions, habits, discipline] = await Promise.all([
+    getMissions(user.id),
+    getHabits(user.id),
+    getDisciplineDays(user.id, 90),
+  ]);
+
+  const completedToday = missions.filter(m => m.completed).length;
+  const completionPct = missions.length ? Math.round((completedToday / missions.length) * 100) : 0;
   const today = new Date();
-
-  // weekly schedule mock — 7 days
-  const weekStatus = [
-    { day: "Mon", missions: 8, completed: 8 },
-    { day: "Tue", missions: 7, completed: 7 },
-    { day: "Wed", missions: 6, completed: 5 },
-    { day: "Thu", missions: 8, completed: 7 },
-    { day: "Fri", missions: 7, completed: completedToday, today: true },
-    { day: "Sat", missions: 5, completed: 0, future: true },
-    { day: "Sun", missions: 4, completed: 0, future: true },
-  ];
+  const week = computeWeekTempo(discipline);
+  const summary = computeDashboardSummary({
+    transactions: [], missions, habits, workouts: [], bodyMetrics: [], discipline,
+  });
 
   return (
     <div className="space-y-6">
@@ -31,63 +40,50 @@ export default function MissionsPage() {
         code="▢ Module 03 · Daily Mission System"
         title={<>Execute the <span className="italic font-light text-ember-300">plan.</span></>}
         subtitle="The man who controls his calendar controls his life. Plan the day. Mark the boxes. Compound."
-        action={
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm">
-              <Calendar className="size-3.5" /> Week View
-            </Button>
-            <Button variant="primary" size="sm">
-              <Plus className="size-3.5" /> Add Mission
-            </Button>
-          </div>
-        }
+        action={<MissionActions />}
       />
 
-      {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <div className="label">Today · {today.toLocaleDateString("en-US", { weekday: "long" })}</div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="stat text-3xl text-ink-primary tracking-tightest">{completedToday}</span>
-            <span className="font-mono text-sm text-ink-muted">/ {MOCK_MISSIONS.length}</span>
+            <span className="font-mono text-sm text-ink-muted">/ {missions.length || 0}</span>
           </div>
-          <Progress value={completionPct} className="mt-3" glow />
+          {missions.length > 0 && <Progress value={completionPct} className="mt-3" glow />}
         </Card>
         <Card>
           <div className="label">Streak · Active</div>
           <div className="mt-3 flex items-baseline gap-2">
             <Flame className="size-5 text-ember-400" strokeWidth={1.6} />
-            <span className="stat text-3xl text-ember-300 tracking-tightest">47</span>
+            <span className="stat text-3xl text-ember-300 tracking-tightest">{summary.currentStreak}</span>
             <span className="font-mono text-sm text-ink-muted">days</span>
           </div>
           <div className="mt-3 font-mono text-[10px] uppercase tracking-widest text-ink-muted">
-            Best · 92 days
+            Best · {summary.longestStreak} days
           </div>
         </Card>
         <Card>
           <div className="label">This Week</div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="stat text-3xl text-ink-primary tracking-tightest">28</span>
-            <span className="font-mono text-sm text-ink-muted">/ 35</span>
+            <span className="stat text-3xl text-ink-primary tracking-tightest">{week.completed}</span>
+            <span className="font-mono text-sm text-ink-muted">days hit</span>
           </div>
-          <SegmentedProgress total={7} completed={5} className="mt-3" />
+          <SegmentedProgress total={7} completed={week.completed} className="mt-3" />
         </Card>
         <Card>
           <div className="label">Avg · Daily Completion</div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="stat text-3xl text-ink-primary tracking-tightest">84</span>
+            <span className="stat text-3xl text-ink-primary tracking-tightest">{week.avgPct}</span>
             <span className="font-mono text-sm text-ink-muted">%</span>
           </div>
-          <div className="mt-3 font-mono text-[10px] uppercase tracking-widest text-signal-green">
-            +6% vs last week
-          </div>
+          <div className="mt-3 font-mono text-[10px] uppercase tracking-widest text-ink-muted">7-day average</div>
         </Card>
       </div>
 
-      {/* Today + Week */}
       <div className="grid grid-cols-12 gap-4">
         <Card className="col-span-12 lg:col-span-7">
-          <MissionChecklist initial={MOCK_MISSIONS} />
+          <MissionChecklist initial={missions} />
         </Card>
 
         <div className="col-span-12 lg:col-span-5 space-y-4">
@@ -95,80 +91,81 @@ export default function MissionsPage() {
             <CardHeader
               label="▢ Week · at a glance"
               title="Mission tempo"
-              action={<Badge tone="ember">28 / 35</Badge>}
+              action={discipline.length > 0 && <Badge tone="ember">7d avg · {week.avgPct}%</Badge>}
             />
-            <div className="space-y-2.5">
-              {weekStatus.map((d, i) => {
-                const pct = d.missions > 0 ? (d.completed / d.missions) * 100 : 0;
-                const isFuture = d.future;
-                return (
+            {discipline.length === 0 ? (
+              <EmptyState title="No history yet" description="Complete a day to start the chart." />
+            ) : (
+              <div className="space-y-2.5">
+                {week.days.map((d, i) => (
                   <div key={i} className="grid grid-cols-[40px_1fr_auto] gap-3 items-center">
-                    <span className={`font-mono text-[10px] uppercase tracking-widest ${d.today ? "text-ember-400" : isFuture ? "text-ink-dim" : "text-ink-muted"}`}>
+                    <span className={`font-mono text-[10px] uppercase tracking-widest ${d.today ? "text-ember-400" : d.future ? "text-ink-dim" : "text-ink-muted"}`}>
                       {d.day}{d.today ? " ●" : ""}
                     </span>
-                    <Progress value={pct} className={isFuture ? "opacity-30" : ""} />
-                    <span className="font-mono text-[11px] tabular-nums text-ink-secondary w-10 text-right">
-                      {d.completed}/{d.missions}
-                    </span>
+                    <Progress value={d.pct} className={d.future ? "opacity-30" : ""} />
+                    <span className="font-mono text-[11px] tabular-nums text-ink-secondary w-12 text-right">{d.pct}%</span>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
           </Card>
 
           <Card>
-            <CardHeader
-              label="▢ Habits · this week"
-              title="Don't break the chain"
-            />
-            <HabitStrip habits={MOCK_HABITS.slice(0, 4)} />
+            <CardHeader label="▢ Habits · this week" title="Don't break the chain" />
+            {habits.length > 0 ? (
+              <HabitStrip habits={habits.slice(0, 4)} />
+            ) : (
+              <EmptyState
+                title="No habits configured"
+                action={<Button variant="ghost" size="sm" href="/onboarding">Re-run onboarding</Button>}
+              />
+            )}
           </Card>
         </div>
       </div>
 
-      {/* Discipline heatmap + Calendar preview */}
-      <div className="grid grid-cols-12 gap-4">
-        <Card className="col-span-12 lg:col-span-8">
-          <CardHeader
-            label="▢ Mission completion · 90 days"
-            title="The chain"
-            action={<span className="font-mono text-[11px] text-ember-400">Avg · 78%</span>}
+      <Card>
+        <CardHeader
+          label="▢ Mission completion · 90 days"
+          title="The chain"
+          action={discipline.length > 0 && <span className="font-mono text-[11px] text-ember-400">Avg · {summary.disciplineAvg}</span>}
+        />
+        {discipline.length > 0 ? (
+          <StreakHeatmap data={discipline} />
+        ) : (
+          <EmptyState
+            icon={<TargetIcon className="size-5" />}
+            title="No history yet"
+            description="The heatmap grows as you log days. Complete today's missions to put the first square down."
           />
-          <StreakHeatmap data={MOCK_DISCIPLINE} />
-        </Card>
-
-        <Card className="col-span-12 lg:col-span-4">
-          <CardHeader
-            label="▢ Mission templates"
-            title="Daily protocols"
-            action={<Button variant="ghost" size="sm"><Plus className="size-3.5" /></Button>}
-          />
-          <div className="space-y-2">
-            {[
-              { name: "Founder · Build Day",   missions: 9, color: "ember" },
-              { name: "Trader · Market Open",  missions: 6, color: "neutral" },
-              { name: "Lift · Recovery Day",   missions: 5, color: "neutral" },
-              { name: "Reset · Sunday",        missions: 4, color: "neutral" },
-            ].map((t) => (
-              <button
-                key={t.name}
-                className="w-full flex items-center justify-between p-3 rounded-xs border border-edge-subtle bg-surface-3/40 hover:border-edge hover:bg-surface-3 transition-colors text-left group"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="size-8 rounded-xs bg-surface-2 border border-edge-subtle grid place-items-center">
-                    <TargetIcon className="size-3.5 text-ink-secondary group-hover:text-ember-400 transition-colors" strokeWidth={1.6} />
-                  </span>
-                  <div>
-                    <div className="text-sm text-ink-primary">{t.name}</div>
-                    <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">{t.missions} missions</div>
-                  </div>
-                </div>
-                <ArrowRight className="size-4 text-ink-muted group-hover:text-ember-400 transition-colors" />
-              </button>
-            ))}
-          </div>
-        </Card>
-      </div>
+        )}
+      </Card>
     </div>
   );
+}
+
+function computeWeekTempo(discipline: { date: string; missions_pct: number; }[]) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const monday = new Date(today);
+  const dow = (today.getDay() + 6) % 7;
+  monday.setDate(today.getDate() - dow);
+  const days: { day: string; pct: number; today?: boolean; future?: boolean }[] = [];
+  const labels = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  let completed = 0;
+  let pctSum = 0;
+  let pctCount = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const iso = d.toISOString().slice(0, 10);
+    const row = discipline.find(x => x.date === iso);
+    const isFuture = d > today;
+    const isToday = d.getTime() === today.getTime();
+    const pct = row?.missions_pct ?? 0;
+    if (pct >= 80 && !isFuture) completed += 1;
+    if (!isFuture && row) { pctSum += pct; pctCount += 1; }
+    days.push({ day: labels[i], pct, today: isToday, future: isFuture });
+  }
+  const avgPct = pctCount ? Math.round(pctSum / pctCount) : 0;
+  return { days, completed, avgPct };
 }

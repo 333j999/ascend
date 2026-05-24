@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Target, Banknote, Dumbbell, Sparkles, ArrowRight, ArrowLeft, Check,
@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { saveProfile } from "@/lib/supabase/actions";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 type Focus = "money" | "fitness" | "business" | "skills" | "discipline";
 type Fitness = "strength" | "hypertrophy" | "endurance" | "fat-loss";
@@ -37,6 +39,8 @@ const HABIT_OPTIONS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [data, setData] = useState({
     focus: undefined as Focus | undefined,
@@ -51,8 +55,31 @@ export default function OnboardingPage() {
   const pct = ((step + 1) / TOTAL) * 100;
 
   function next() {
-    if (step < TOTAL - 1) setStep(step + 1);
-    else router.push("/app/dashboard");
+    if (step < TOTAL - 1) {
+      setStep(step + 1);
+      return;
+    }
+    // Final step — persist profile then route.
+    setError(null);
+    if (!isSupabaseConfigured()) {
+      router.push("/app/dashboard");
+      return;
+    }
+    start(async () => {
+      try {
+        await saveProfile({
+          primary_focus: data.focus,
+          income_target_monthly: data.income_target,
+          savings_target: data.savings_target,
+          fitness_focus: data.fitness,
+          bodyweight_goal_kg: data.bodyweight,
+          daily_habits: data.habits,
+        });
+        router.push("/app/dashboard");
+      } catch (e: any) {
+        setError(e?.message ?? "Could not save profile.");
+      }
+    });
   }
   function back() {
     if (step > 0) setStep(step - 1);
@@ -168,7 +195,7 @@ export default function OnboardingPage() {
                         type="button"
                         onClick={() => setData(d => ({ ...d, fitness: id }))}
                         className={cn(
-                          "h-14 rounded-xs border font-mono text-[11px] uppercase tracking-widest transition-all",
+                          "h-14 px-2 rounded-xs border font-mono text-[10px] sm:text-[11px] uppercase tracking-wider sm:tracking-widest transition-all whitespace-nowrap",
                           active
                             ? "border-ember-500/60 bg-ember-500/10 text-ember-300 shadow-ember-glow-sm"
                             : "border-edge-subtle bg-surface-2 text-ink-secondary hover:border-edge",
@@ -246,16 +273,23 @@ export default function OnboardingPage() {
       </div>
 
       {/* Footer nav */}
-      <div className="flex items-center justify-between gap-4">
-        <Button variant="ghost" onClick={back} disabled={step === 0}>
-          <ArrowLeft className="size-4" /> Back
-        </Button>
-        <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted hidden sm:block">
-          Press Enter to continue
+      <div className="flex flex-col gap-3">
+        {error && (
+          <div className="text-sm text-signal-red border border-signal-red/30 bg-signal-red/5 p-2.5 rounded-xs text-center">
+            {error}
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-4">
+          <Button variant="ghost" onClick={back} disabled={step === 0 || pending}>
+            <ArrowLeft className="size-4" /> Back
+          </Button>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted hidden sm:block">
+            {pending ? "Deploying configuration…" : "Press Enter to continue"}
+          </div>
+          <Button variant="primary" onClick={next} disabled={pending}>
+            {pending ? "Deploying…" : step === TOTAL - 1 ? "Deploy" : "Continue"} <ArrowRight className="size-4" />
+          </Button>
         </div>
-        <Button variant="primary" onClick={next}>
-          {step === TOTAL - 1 ? "Deploy" : "Continue"} <ArrowRight className="size-4" />
-        </Button>
       </div>
     </div>
   );

@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Bell, Plus, Menu } from "lucide-react";
-import { MOCK_USER } from "@/lib/mock-data";
+import { Search, Menu } from "lucide-react";
+import { QuickLogButton } from "@/components/app-shell/quick-log-button";
 
-export function Topbar({ onMenuOpen }: { onMenuOpen?: () => void }) {
+type Props = {
+  onMenuOpen?: () => void;
+  user: { name: string; initials: string; avatarUrl?: string | null };
+};
+
+export function Topbar({ onMenuOpen, user }: Props) {
   const [now, setNow] = useState<string>("");
 
   useEffect(() => {
@@ -30,12 +35,13 @@ export function Topbar({ onMenuOpen }: { onMenuOpen?: () => void }) {
           <Menu className="size-4" />
         </button>
 
-        {/* Search */}
+        {/* Search — placeholder for now, focusable but no-op */}
         <div className="hidden md:flex items-center gap-2 flex-1 max-w-md h-10 px-3 rounded-xs bg-surface-2 border border-edge-subtle">
           <Search className="size-3.5 text-ink-muted" />
           <input
             className="flex-1 bg-transparent text-sm text-ink-primary placeholder:text-ink-dim focus:outline-none"
-            placeholder="Jump to anything…"
+            placeholder="Search coming soon…"
+            disabled
           />
           <span className="font-mono text-[10px] uppercase tracking-widest text-ink-muted border border-edge-subtle px-1.5 py-0.5 rounded-2xs">
             ⌘ K
@@ -52,23 +58,25 @@ export function Topbar({ onMenuOpen }: { onMenuOpen?: () => void }) {
           <span>{now}</span>
         </div>
 
-        {/* Actions */}
-        <button className="btn-ghost h-9 px-3">
-          <Plus className="size-3.5" /> Log
-        </button>
-
-        <button className="relative size-9 grid place-items-center rounded-xs border border-edge-subtle bg-surface-2 text-ink-secondary hover:border-edge hover:text-ink-primary transition-colors">
-          <Bell className="size-4" />
-          <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-ember-500 shadow-ember-glow-sm" />
-        </button>
+        {/* Quick Log — fully wired */}
+        <QuickLogButton />
 
         {/* User */}
         <div className="flex items-center gap-2.5 pl-3 border-l border-edge-subtle h-10">
-          <div className="size-8 rounded-full bg-gradient-to-br from-surface-4 to-surface-3 border border-edge-subtle grid place-items-center font-mono text-xs text-ember-300">
-            {MOCK_USER.name.split(" ").map(w => w[0]).join("")}
-          </div>
+          {user.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.avatarUrl}
+              alt={user.name}
+              className="size-8 rounded-full border border-edge-subtle"
+            />
+          ) : (
+            <div className="size-8 rounded-full bg-gradient-to-br from-surface-4 to-surface-3 border border-edge-subtle grid place-items-center font-mono text-xs text-ember-300">
+              {user.initials}
+            </div>
+          )}
           <div className="hidden md:block leading-tight">
-            <div className="text-sm text-ink-primary font-medium">{MOCK_USER.name}</div>
+            <div className="text-sm text-ink-primary font-medium">{user.name}</div>
             <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">Operator</div>
           </div>
         </div>

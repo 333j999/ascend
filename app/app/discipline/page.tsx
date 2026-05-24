@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { TrendingUp, Trophy, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -5,25 +6,58 @@ import { Badge } from "@/components/ui/badge";
 import { Stat } from "@/components/ui/stat";
 import { Progress } from "@/components/ui/progress";
 import { RadialScore } from "@/components/ui/radial-score";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ChartArea } from "@/components/charts/area-chart";
 import { StreakHeatmap } from "@/components/charts/streak-heatmap";
-import { MOCK_DISCIPLINE, MOCK_ANALYTICS } from "@/lib/mock-data";
+import { getCurrentUser } from "@/lib/supabase/auth";
+import {
+  getTransactions, getMissions, getHabits, getWorkouts,
+  getBodyMetrics, getDisciplineDays, getJournalEntries,
+} from "@/lib/supabase/queries";
+import { computeDashboardSummary } from "@/lib/discipline";
 import { rangeLabel } from "@/lib/utils";
 
-export default function DisciplinePage() {
-  const a = MOCK_ANALYTICS;
-  const week = MOCK_DISCIPLINE.slice(-7);
-  const weekAvg = Math.round(week.reduce((s, d) => s + d.score, 0) / week.length);
-  const month = MOCK_DISCIPLINE.slice(-30);
-  const monthAvg = Math.round(month.reduce((s, d) => s + d.score, 0) / month.length);
+export const dynamic = "force-dynamic";
+
+export default async function DisciplinePage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const [transactions, missions, habits, workouts, bodyMetrics, discipline, journal] = await Promise.all([
+    getTransactions(user.id, 200),
+    getMissions(user.id),
+    getHabits(user.id),
+    getWorkouts(user.id, 30),
+    getBodyMetrics(user.id, 30),
+    getDisciplineDays(user.id, 90),
+    getJournalEntries(user.id, 5),
+  ]);
+
+  const summary = computeDashboardSummary({
+    transactions, missions, habits, workouts, bodyMetrics, discipline,
+  });
+
+  const week = discipline.slice(-7);
+  const weekAvg = week.length ? Math.round(week.reduce((s, d) => s + d.score, 0) / week.length) : 0;
+  const month = discipline.slice(-30);
+  const monthAvg = summary.disciplineAvg;
+  const allTimeBest = discipline.length ? Math.max(...discipline.map(d => d.score)) : 0;
+  const eliteDays = month.filter(d => d.score >= 90).length;
+  const brokenDays = month.filter(d => d.score < 60).length;
+
+  // Today's component breakdown — derived from real activity
+  const gymToday = workouts.some(w => isToday(new Date(w.date)));
+  const financeToday = transactions.some(t => isToday(new Date(t.date)));
+  const journalToday = journal.some(j => isToday(new Date(j.date)));
+  const sleepOk = (summary.sleepHours ?? 0) >= 7;
 
   const components = [
-    { name: "Habits completed", pct: 92, weight: 30 },
-    { name: "Missions hit",     pct: 71, weight: 25 },
-    { name: "Gym attendance",   pct: 86, weight: 15 },
-    { name: "Sleep · 7h+",      pct: 88, weight: 15 },
-    { name: "Finance logged",   pct: 95, weight: 10 },
-    { name: "Journal entry",    pct: 100, weight: 5 },
+    { name: "Habits completed", pct: summary.habitsPct, weight: 30 },
+    { name: "Missions hit",     pct: summary.missionsPct, weight: 25 },
+    { name: "Gym attendance",   pct: gymToday ? 100 : 0, weight: 15 },
+    { name: "Sleep · 7h+",      pct: sleepOk ? 100 : 0,  weight: 15 },
+    { name: "Finance logged",   pct: financeToday ? 100 : 0, weight: 10 },
+    { name: "Journal entry",    pct: journalToday ? 100 : 0, weight: 5 },
   ];
 
   return (
@@ -34,14 +68,15 @@ export default function DisciplinePage() {
         subtitle="Your discipline score is the daily, honest readout of who you are right now. Six inputs. One verdict. Defended daily."
       />
 
-      {/* Hero radial + components */}
       <div className="grid grid-cols-12 gap-4">
         <Card className="col-span-12 lg:col-span-5 flex flex-col items-center justify-center p-8">
           <div className="label mb-2">▢ Today · {new Date().toLocaleDateString("en-US", { weekday: "long" })}</div>
-          <RadialScore value={a.discipline_score} size={260} stroke={12} sublabel={rangeLabel(a.discipline_score)} />
-          <div className="mt-6 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-signal-green">
-            <TrendingUp className="size-3.5" /> +8.4% vs 30-day average
-          </div>
+          <RadialScore value={summary.disciplineScore} size={260} stroke={12} sublabel={rangeLabel(summary.disciplineScore)} />
+          {discipline.length > 0 && summary.disciplineScore - monthAvg !== 0 && (
+            <div className={`mt-6 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest ${summary.disciplineScore >= monthAvg ? "text-signal-green" : "text-signal-red"}`}>
+              <TrendingUp className="size-3.5" /> {summary.disciplineScore >= monthAvg ? "+" : ""}{summary.disciplineScore - monthAvg} vs 30-day average
+            </div>
+          )}
         </Card>
 
         <Card className="col-span-12 lg:col-span-7">
@@ -70,91 +105,91 @@ export default function DisciplinePage() {
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
               <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">7d Avg</div>
-              <div className="mt-1 stat text-2xl text-ink-primary">{weekAvg}</div>
+              <div className="mt-1 stat text-2xl text-ink-primary">{weekAvg || "—"}</div>
             </div>
             <div>
               <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">30d Avg</div>
-              <div className="mt-1 stat text-2xl text-ink-primary">{monthAvg}</div>
+              <div className="mt-1 stat text-2xl text-ink-primary">{monthAvg || "—"}</div>
             </div>
             <div>
               <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">All-time Best</div>
-              <div className="mt-1 stat text-2xl text-ember-300">98</div>
+              <div className="mt-1 stat text-2xl text-ember-300">{allTimeBest || "—"}</div>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Streak summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card><Stat label="Current streak"   value={a.current_streak.toString()} unit="days" delta={12.0} /></Card>
-        <Card><Stat label="Longest streak"   value={a.longest_streak.toString()} unit="days" hint="all time" /></Card>
-        <Card><Stat label="Elite days · 30d" value="14" unit="/30" delta={28.0} /></Card>
-        <Card><Stat label="Below 60 · 30d"   value="3" unit="days" delta={-40.0} deltaLabel="lower is better" /></Card>
+        <Card><Stat label="Current streak"   value={summary.currentStreak.toString()} unit="days" /></Card>
+        <Card><Stat label="Longest streak"   value={summary.longestStreak.toString()} unit="days" hint="all time" /></Card>
+        <Card><Stat label="Elite days · 30d" value={String(eliteDays)} hint={month.length ? `of ${month.length}` : "no data"} /></Card>
+        <Card><Stat label="Below 60 · 30d"   value={String(brokenDays)} hint="lower is better" /></Card>
       </div>
 
-      {/* Trend + heatmap */}
       <div className="grid grid-cols-12 gap-4">
         <Card className="col-span-12 lg:col-span-7">
           <CardHeader
             label="▢ Discipline trend · 30 days"
             title="The slope of the man"
-            action={<Badge tone="ember">Trending up</Badge>}
+            action={discipline.length > 0 && <Badge tone="ember">Avg · {monthAvg}</Badge>}
           />
-          <ChartArea
-            data={MOCK_DISCIPLINE.slice(-30)}
-            xKey="date"
-            yKeys={[{ key: "score", label: "Score", color: "#ff5e1a" }]}
-            height={260}
-            format="score"
-          />
+          {month.length > 1 ? (
+            <ChartArea
+              data={month}
+              xKey="date"
+              yKeys={[{ key: "score", label: "Score", color: "#ff5e1a" }]}
+              height={260}
+              format="score"
+            />
+          ) : (
+            <EmptyState title="No trend yet" description="Log activity for a couple of days to see the slope." />
+          )}
         </Card>
 
         <Card className="col-span-12 lg:col-span-5">
           <CardHeader
             label="▢ 90-day mosaic"
             title="The chain"
-            action={<Badge tone="neutral">Avg · {monthAvg}</Badge>}
+            action={discipline.length > 0 && <Badge tone="neutral">Avg · {monthAvg}</Badge>}
           />
-          <StreakHeatmap data={MOCK_DISCIPLINE} />
+          {discipline.length > 0 ? (
+            <StreakHeatmap data={discipline} />
+          ) : (
+            <EmptyState title="No chain yet" description="Tomorrow's square is up to you." />
+          )}
         </Card>
       </div>
 
-      {/* Weekly report */}
       <Card>
         <CardHeader
           label="▢ Weekly briefing · auto-generated"
           title="What this week meant"
-          action={<Badge tone="ember"><Trophy className="size-3" /> Solid week</Badge>}
+          action={discipline.length > 0 && <Badge tone="ember"><Trophy className="size-3" /> {labelForWeek(weekAvg)}</Badge>}
         />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <BriefingCard
-            tone="green"
-            title="Strengths"
-            items={[
-              "Reading streak unbroken — 23 days.",
-              "Sleep average up to 8.2h.",
-              "Income trending +14% vs last month.",
-            ]}
+        {discipline.length === 0 ? (
+          <EmptyState
+            title="No briefing yet"
+            description="The auto-briefing populates once you have a week of activity logged."
           />
-          <BriefingCard
-            tone="amber"
-            title="Watch"
-            items={[
-              "Cold plunge skipped 2 of last 4 days.",
-              "Wednesday's score dropped to 64.",
-              "Late dinners on social days.",
-            ]}
-          />
-          <BriefingCard
-            tone="ember"
-            title="Mission for next week"
-            items={[
-              "Hit 5 cold outreaches before 10am, 5 days running.",
-              "No food after 8pm — even on outings.",
-              "Friday legs · attempt 170 kg squat single.",
-            ]}
-          />
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <BriefingCard
+              tone="green"
+              title="Strengths"
+              items={buildStrengths({ summary, gymToday, financeToday, journalToday, sleepOk })}
+            />
+            <BriefingCard
+              tone="amber"
+              title="Watch"
+              items={buildWatch({ summary, gymToday, financeToday, journalToday, sleepOk, brokenDays })}
+            />
+            <BriefingCard
+              tone="ember"
+              title="Mission for next week"
+              items={buildMissions({ summary })}
+            />
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -171,14 +206,61 @@ function BriefingCard({
   return (
     <div className={`p-5 rounded-xs border bg-surface-3/30 ${toneClass.split(" ")[0]}`}>
       <div className={`label ${toneClass.split(" ")[1]}`}>▢ {title}</div>
-      <ul className="mt-4 space-y-2.5">
-        {items.map((it, i) => (
-          <li key={i} className="text-sm text-ink-primary leading-relaxed flex gap-2.5">
-            <span className={`mt-1.5 size-1.5 rounded-full shrink-0 ${toneClass.split(" ")[1].replace("text", "bg")}`} />
-            {it}
-          </li>
-        ))}
-      </ul>
+      {items.length === 0 ? (
+        <div className="mt-3 text-sm text-ink-muted">Nothing notable yet.</div>
+      ) : (
+        <ul className="mt-4 space-y-2.5">
+          {items.map((it, i) => (
+            <li key={i} className="text-sm text-ink-primary leading-relaxed flex gap-2.5">
+              <span className={`mt-1.5 size-1.5 rounded-full shrink-0 ${toneClass.split(" ")[1].replace("text", "bg")}`} />
+              {it}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
+}
+
+function isToday(d: Date) {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const x = new Date(d); x.setHours(0, 0, 0, 0);
+  return x.getTime() === t.getTime();
+}
+
+function labelForWeek(avg: number) {
+  if (avg >= 85) return "Elite week";
+  if (avg >= 70) return "Solid week";
+  if (avg >= 50) return "Steady week";
+  return "Recovery week";
+}
+
+function buildStrengths({ summary, gymToday, financeToday, journalToday, sleepOk }: any) {
+  const out: string[] = [];
+  if (summary.currentStreak >= 7) out.push(`${summary.currentStreak}-day streak active. Don't break it.`);
+  if (summary.habitsPct >= 80) out.push(`Habits at ${summary.habitsPct}% today — high consistency.`);
+  if (gymToday) out.push("Gym session logged today.");
+  if (journalToday) out.push("Journaled today — five minutes well spent.");
+  if (sleepOk) out.push(`Sleep on target at ${summary.sleepHours?.toFixed(1)}h.`);
+  if (financeToday) out.push("Finance touched today — staying on top of it.");
+  return out;
+}
+
+function buildWatch({ summary, gymToday, financeToday, journalToday, sleepOk, brokenDays }: any) {
+  const out: string[] = [];
+  if (summary.habitsPct < 50) out.push(`Habits at ${summary.habitsPct}%. Pick the one easiest to defend.`);
+  if (!gymToday) out.push("No gym session today.");
+  if (!sleepOk) out.push(`Sleep below 7h${summary.sleepHours ? ` (${summary.sleepHours.toFixed(1)}h)` : ""}.`);
+  if (!financeToday) out.push("Finance not touched today.");
+  if (!journalToday) out.push("No journal entry today.");
+  if (brokenDays >= 5) out.push(`${brokenDays} days below 60 this month — pattern, not noise.`);
+  return out;
+}
+
+function buildMissions({ summary }: any) {
+  const out: string[] = [];
+  if (summary.habitsPct < 100) out.push("Hit every habit checkbox tomorrow morning.");
+  if (summary.missionsPct < 80) out.push("Set 3 missions tonight. Execute the first one before 10am.");
+  out.push("Log every meal and movement on the most challenging day — the data will surprise you.");
+  return out;
 }
