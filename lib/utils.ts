@@ -49,6 +49,25 @@ export function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
+/**
+ * Convert a Date to a YYYY-MM-DD string using the LOCAL timezone
+ * (instead of UTC like .toISOString().slice(0,10) does).
+ *
+ * Why this exists: when a user clicks "Sunday" at 11pm local in NL (UTC+1),
+ * `.toISOString()` returns the UTC date which is Sunday 22:00 → "Sunday" still.
+ * But if it's 1am local Monday, UTC is still Sunday → off by one. Storing
+ * habit logs / discipline days with UTC dates breaks the user's mental model.
+ *
+ * This helper uses the local Y/M/D components so the stored date matches
+ * what the user sees on their calendar.
+ */
+export function toLocalISODate(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function rangeLabel(value: number) {
   if (value >= 90) return "ELITE";
   if (value >= 75) return "DISCIPLINED";

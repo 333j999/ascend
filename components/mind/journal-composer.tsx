@@ -6,7 +6,7 @@ import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { addJournalEntry } from "@/lib/supabase/actions";
-import { cn } from "@/lib/utils";
+import { cn, toLocalISODate } from "@/lib/utils";
 import type { JournalEntry, Mood } from "@/types";
 
 const MOOD_OPTIONS: { id: Mood; label: string; emoji: string }[] = [
@@ -47,7 +47,7 @@ export function JournalComposer({ existing }: { existing?: JournalEntry }) {
     start(async () => {
       try {
         await addJournalEntry({
-          date: new Date().toISOString().slice(0, 10),
+          date: toLocalISODate(new Date()),
           mood,
           win: win.trim() || undefined,
           loss: loss.trim() || undefined,

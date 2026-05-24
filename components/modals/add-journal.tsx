@@ -6,7 +6,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { addJournalEntry } from "@/lib/supabase/actions";
-import { cn } from "@/lib/utils";
+import { cn, toLocalISODate } from "@/lib/utils";
 
 type Mood = "elite" | "focused" | "neutral" | "low" | "broken";
 
@@ -40,7 +40,7 @@ export function AddJournalModal({ open, onClose }: { open: boolean; onClose: () 
     start(async () => {
       try {
         await addJournalEntry({
-          date: new Date().toISOString().slice(0, 10),
+          date: toLocalISODate(new Date()),
           mood,
           win: win || undefined,
           loss: loss || undefined,

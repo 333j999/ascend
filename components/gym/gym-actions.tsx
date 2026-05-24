@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { logBodyMetric } from "@/lib/supabase/actions";
+import { toLocalISODate } from "@/lib/utils";
 
 export function GymActions() {
   const [workoutOpen, setWorkoutOpen] = useState(false);
@@ -37,7 +38,7 @@ function LogBodyMetricModal({ open, onClose }: { open: boolean; onClose: () => v
     e.preventDefault();
     setError(null);
     const form = new FormData(e.currentTarget);
-    const date = String(form.get("date") ?? new Date().toISOString().slice(0, 10));
+    const date = String(form.get("date") ?? toLocalISODate(new Date()));
     const weight_kg = Number(form.get("weight") ?? 0) || undefined;
     const body_fat_pct = Number(form.get("bf") ?? 0) || undefined;
     const sleep_hours = Number(form.get("sleep") ?? 0) || undefined;
@@ -67,7 +68,7 @@ function LogBodyMetricModal({ open, onClose }: { open: boolean; onClose: () => v
       subtitle="One row per day. Yesterday's value is overwritten if you log again."
     >
       <form onSubmit={onSubmit} className="space-y-5">
-        <Input label="Date" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
+        <Input label="Date" name="date" type="date" defaultValue={toLocalISODate(new Date())} required />
         <div className="grid grid-cols-3 gap-3">
           <Input label="Weight (kg)" name="weight" type="number" step="0.1" placeholder="87.6" />
           <Input label="Body fat %" name="bf" type="number" step="0.1" placeholder="12.8" />

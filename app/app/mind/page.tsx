@@ -8,7 +8,7 @@ import { JournalComposer } from "@/components/mind/journal-composer";
 import { MoodChart } from "@/components/mind/mood-chart";
 import { getCurrentUser } from "@/lib/supabase/auth";
 import { getJournalEntries } from "@/lib/supabase/queries";
-import { formatDate } from "@/lib/utils";
+import { formatDate, toLocalISODate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ export default async function MindPage() {
   const entries = await getJournalEntries(user.id, 30);
 
   // Today's entry (if any) so the composer shows existing data
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = toLocalISODate(new Date());
   const todayEntry = entries.find(e => e.date === todayIso);
 
   // 14-day streak
@@ -128,7 +128,7 @@ function computeJournalStreak(entries: { date: string }[]): { current: number; l
   for (let i = 0; i < sortedDesc.length; i++) {
     const expected = new Date(today);
     expected.setDate(today.getDate() - i);
-    const expectedIso = expected.toISOString().slice(0, 10);
+    const expectedIso = toLocalISODate(expected);
     if (sortedDesc[i].date === expectedIso) current += 1;
     else break;
   }

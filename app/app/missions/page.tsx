@@ -13,6 +13,7 @@ import { MissionActions } from "@/components/missions/mission-actions";
 import { getCurrentUser } from "@/lib/supabase/auth";
 import { getMissions, getHabits, getDisciplineDays } from "@/lib/supabase/queries";
 import { computeDashboardSummary } from "@/lib/discipline";
+import { toLocalISODate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -157,7 +158,7 @@ function computeWeekTempo(discipline: { date: string; missions_pct: number; }[])
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    const iso = d.toISOString().slice(0, 10);
+    const iso = toLocalISODate(d);
     const row = discipline.find(x => x.date === iso);
     const isFuture = d > today;
     const isToday = d.getTime() === today.getTime();

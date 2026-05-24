@@ -1,6 +1,7 @@
 import type {
   Transaction, Mission, Habit, Workout, BodyMetric, DisciplineDay,
 } from "@/types";
+import { toLocalISODate } from "@/lib/utils";
 
 export type DashboardSummary = {
   hasAnyData: boolean;
@@ -80,7 +81,7 @@ export function computeDashboardSummary({
   if (sleepOk) score += 15;
   if (financeToday) score += 10;
   // 5 pts journal — proxy: any non-zero discipline_days entry today
-  const todayIso = today.toISOString().slice(0, 10);
+  const todayIso = toLocalISODate(today);
   const todayRow = discipline.find(d => d.date === todayIso);
   if (todayRow) score += 5;
 

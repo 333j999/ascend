@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useOptimistic, useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import type { Habit } from "@/types";
-import { cn } from "@/lib/utils";
+import { cn, toLocalISODate } from "@/lib/utils";
 import { logHabit, deleteHabit } from "@/lib/supabase/actions";
 
 const DAY_LABELS = ["M","T","W","T","F","S","S"];
@@ -38,27 +38,39 @@ export function HabitStrip({
 function HabitRow({ habit, editable }: { habit: Habit; editable: boolean }) {
   const router = useRouter();
   const [, start] = useTransition();
-  const [optimistic, setOptimistic] = useState(habit.completions_this_week);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Compute monday-anchored dates so clicks know which row to toggle
+  // useOptimistic — state RESETS to the prop on every re-render. So when the
+  // server returns fresh data after revalidate, our local state stays in sync.
+  // (useState would stick with whatever the user last clicked, even if the
+  // server says otherwise — that was the bug in the previous version.)
+  const [optimisticCompletions, applyOptimistic] = useOptimistic(
+    habit.completions_this_week,
+    (current: boolean[], action: { idx: number; value: boolean }) =>
+      current.map((v, i) => (i === action.idx ? action.value : v)),
+  );
+
   const monday = mondayOfThisWeek();
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
   function toggle(dayIdx: number) {
     const d = new Date(monday); d.setDate(monday.getDate() + dayIdx);
-    if (d > today) return; // can't log future
-    const iso = d.toISOString().slice(0, 10);
+    if (d > today) return;
 
-    const next = !optimistic[dayIdx];
-    setOptimistic((arr) => arr.map((v, i) => (i === dayIdx ? next : v)));
+    // Use LOCAL Y/M/D (not toISOString) so the stored date matches what the
+    // user sees on their calendar regardless of timezone.
+    const iso = toLocalISODate(d);
+    const next = !optimisticCompletions[dayIdx];
+
+    setErrorMsg(null);
     start(async () => {
+      applyOptimistic({ idx: dayIdx, value: next });
       try {
         await logHabit(habit.id, iso, next);
         router.refresh();
-      } catch {
-        // revert
-        setOptimistic((arr) => arr.map((v, i) => (i === dayIdx ? !next : v)));
+      } catch (e: any) {
+        setErrorMsg(e?.message ?? "Failed to save");
       }
     });
   }
@@ -66,8 +78,12 @@ function HabitRow({ habit, editable }: { habit: Habit; editable: boolean }) {
   function onDelete() {
     if (!confirmDel) { setConfirmDel(true); return; }
     start(async () => {
-      await deleteHabit(habit.id);
-      router.refresh();
+      try {
+        await deleteHabit(habit.id);
+        router.refresh();
+      } catch (e: any) {
+        setErrorMsg(e?.message ?? "Failed to delete");
+      }
     });
   }
 
@@ -84,12 +100,18 @@ function HabitRow({ habit, editable }: { habit: Habit; editable: boolean }) {
           title={isBad ? "Bad habit — to avoid" : "Good habit"}
         />
         <span className="text-sm text-ink-primary truncate">{habit.name}</span>
+        {errorMsg && (
+          <span className="ml-2 text-[10px] text-signal-red font-mono uppercase tracking-widest" title={errorMsg}>
+            ⚠ {errorMsg.length > 30 ? "error" : errorMsg}
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-7 gap-1.5 w-[140px]">
-        {optimistic.map((done, i) => {
+        {optimisticCompletions.map((done, i) => {
           const d = new Date(monday); d.setDate(monday.getDate() + i);
           const isFuture = d > today;
+          const isToday = d.getTime() === today.getTime();
           const dotClass = done
             ? isBad
               ? "bg-signal-red/90 shadow-[0_0_6px_rgba(239,68,68,0.5)]"
@@ -106,6 +128,7 @@ function HabitRow({ habit, editable }: { habit: Habit; editable: boolean }) {
                 "h-5 rounded-2xs transition-colors",
                 dotClass,
                 isFuture && "opacity-30 cursor-not-allowed",
+                isToday && !done && "ring-1 ring-ember-500/40",
               )}
               aria-label={`${habit.name} · day ${i + 1}`}
               title={d.toDateString()}

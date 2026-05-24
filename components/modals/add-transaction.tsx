@@ -7,7 +7,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { addTransaction } from "@/lib/supabase/actions";
-import { cn } from "@/lib/utils";
+import { cn, toLocalISODate } from "@/lib/utils";
 
 const CATEGORIES = [
   "salary", "business", "investments", "freelance",
@@ -35,7 +35,7 @@ export function AddTransactionModal({
     const amount = Number(form.get("amount"));
     const description = String(form.get("description") ?? "").trim();
     const category = String(form.get("category") ?? "other");
-    const date = String(form.get("date") ?? new Date().toISOString().slice(0, 10));
+    const date = String(form.get("date") ?? toLocalISODate(new Date()));
 
     if (!amount || amount <= 0) { setError("Amount must be greater than zero."); return; }
     if (!description) { setError("Add a description."); return; }
@@ -90,7 +90,7 @@ export function AddTransactionModal({
 
         <div className="grid grid-cols-2 gap-4">
           <Input label="Amount ($)" name="amount" type="number" step="0.01" placeholder="0" required />
-          <Input label="Date" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
+          <Input label="Date" name="date" type="date" defaultValue={toLocalISODate(new Date())} required />
         </div>
 
         <Input label="Description" name="description" placeholder="Client retainer, groceries, gym membership…" required />

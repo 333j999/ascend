@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { addWorkout } from "@/lib/supabase/actions";
+import { toLocalISODate } from "@/lib/utils";
 
 type SetRow = { reps: number; weight_kg: number };
 type ExerciseRow = { name: string; sets: SetRow[] };
@@ -86,7 +87,7 @@ export function AddWorkoutModal({ open, onClose }: { open: boolean; onClose: () 
       <form onSubmit={onSubmit} className="space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Input label="Session name" name="name" placeholder="Pull · heavy" required className="sm:col-span-1" />
-          <Input label="Date" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
+          <Input label="Date" name="date" type="date" defaultValue={toLocalISODate(new Date())} required />
           <Input label="Duration (min)" name="duration" type="number" defaultValue={60} required />
         </div>
 

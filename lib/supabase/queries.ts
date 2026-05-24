@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { toLocalISODate } from "@/lib/utils";
 import type {
   Transaction, Mission, Habit, Workout, BodyMetric,
   JournalEntry, SavingsGoal, Debt, DisciplineDay,
@@ -39,8 +40,14 @@ export async function getDebts(userId: string): Promise<Debt[]> {
 
 export async function getMissions(userId: string, today = todayISO()): Promise<Mission[]> {
   const supabase = createClient();
-  const start = new Date(today); start.setUTCHours(0, 0, 0, 0);
-  const end = new Date(today); end.setUTCHours(23, 59, 59, 999);
+  // We use a wide ±24h window in UTC to capture any timezone the user might be in,
+  // then trust the client (or downstream filter) to scope properly.
+  // For now this is "today plus an extra day either side" so users in any TZ see
+  // the right set even if server is on UTC.
+  const start = new Date(today + "T00:00:00");
+  start.setHours(start.getHours() - 12);
+  const end = new Date(today + "T23:59:59");
+  end.setHours(end.getHours() + 12);
   const { data } = await supabase
     .from("missions")
     .select("*")
@@ -67,14 +74,14 @@ export async function getHabits(userId: string): Promise<Habit[]> {
     .from("habit_logs")
     .select("*")
     .eq("user_id", userId)
-    .gte("date", weekStart.toISOString().slice(0, 10));
+    .gte("date", toLocalISODate(weekStart));
 
   return habits.map((h: any) => {
     const days = (logs ?? []).filter((l: any) => l.habit_id === h.id);
     const completions: boolean[] = Array.from({ length: 7 }).map((_, i) => {
       const d = new Date(weekStart);
       d.setDate(d.getDate() + i);
-      const iso = d.toISOString().slice(0, 10);
+      const iso = toLocalISODate(d);
       return days.some((l: any) => l.date === iso && l.completed);
     });
     return {
@@ -137,7 +144,7 @@ export async function getDisciplineDays(userId: string, days = 90): Promise<Disc
     .from("discipline_days")
     .select("*")
     .eq("user_id", userId)
-    .gte("date", since.toISOString().slice(0, 10))
+    .gte("date", toLocalISODate(since))
     .order("date", { ascending: true });
   return (data ?? []) as DisciplineDay[];
 }
@@ -145,7 +152,7 @@ export async function getDisciplineDays(userId: string, days = 90): Promise<Disc
 // ── helpers ─────────────────────────────────────────────────
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalISODate(new Date());
 }
 
 function mondayOfThisWeek(): Date {
