@@ -1,0 +1,180 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────
+   ASCEND — base reset + design tokens
+   Aesthetic: tactical precision. Matte black. Single ember accent.
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: dark;
+  --ember: 255 94 26;
+  --signal-green: 34 197 94;
+  --signal-red: 239 68 68;
+  --signal-amber: 245 158 11;
+}
+
+html, body {
+  background: #08080a;
+  color: #f5f5f4;
+  font-feature-settings: "ss01", "ss02", "cv11";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255, 94, 26, 0.06), transparent 60%),
+    radial-gradient(ellipse 60% 80% at 100% 100%, rgba(255, 94, 26, 0.025), transparent 50%),
+    linear-gradient(180deg, #08080a 0%, #0a0a0c 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* Custom scrollbar — minimal, monochrome */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #2a2a31;
+  border-radius: 0;
+  border: 2px solid #08080a;
+}
+::-webkit-scrollbar-thumb:hover { background: #3a3a44; }
+
+/* Selection — ember */
+::selection {
+  background: rgba(255, 94, 26, 0.25);
+  color: #fff5ee;
+}
+
+/* Focus rings — sharp ember outline */
+:focus-visible {
+  outline: 1px solid rgb(var(--ember));
+  outline-offset: 2px;
+}
+
+/* ─── Component utilities ────────────────────────────────────── */
+@layer components {
+
+  /* Card — base raised surface */
+  .card {
+    @apply relative bg-surface-2 border border-edge-subtle rounded-xs
+           shadow-card transition-colors duration-300;
+  }
+
+  .card-interactive {
+    @apply card hover:border-edge hover:bg-surface-3;
+  }
+
+  /* Glass panel — used for sidebar/topbar overlays */
+  .glass {
+    background: linear-gradient(180deg, rgba(19,19,22,0.85) 0%, rgba(13,13,16,0.92) 100%);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+  }
+
+  /* Section label — tiny uppercase mono */
+  .label {
+    @apply font-mono text-[10px] uppercase tracking-widest text-ink-muted;
+  }
+
+  /* Headline — large display text with negative tracking */
+  .headline {
+    @apply font-display font-medium tracking-tightest text-ink-primary;
+  }
+
+  /* Stat display — numeric mono */
+  .stat {
+    @apply font-mono font-medium tabular-nums tracking-tight;
+  }
+
+  /* Faint grid background overlay (place inside a relative container) */
+  .grid-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 80%);
+    pointer-events: none;
+  }
+
+  /* Noise overlay */
+  .noise-overlay::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+    opacity: 0.04;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+  }
+
+  /* Ember dot — small status pulse */
+  .ember-dot {
+    @apply relative inline-block w-1.5 h-1.5 rounded-full bg-ember-500;
+    box-shadow: 0 0 0 2px rgba(255, 94, 26, 0.15), 0 0 12px rgba(255, 94, 26, 0.6);
+  }
+  .ember-dot::before {
+    content: "";
+    @apply absolute inset-0 rounded-full bg-ember-500 animate-ping;
+    opacity: 0.5;
+  }
+
+  /* Signal dots for status */
+  .signal-dot-green { @apply w-1.5 h-1.5 rounded-full bg-signal-green;
+    box-shadow: 0 0 8px rgba(34,197,94,0.6); }
+  .signal-dot-red { @apply w-1.5 h-1.5 rounded-full bg-signal-red;
+    box-shadow: 0 0 8px rgba(239,68,68,0.6); }
+  .signal-dot-amber { @apply w-1.5 h-1.5 rounded-full bg-signal-amber;
+    box-shadow: 0 0 8px rgba(245,158,11,0.6); }
+
+  /* Divider — hairline with subtle ember gradient */
+  .divider-x {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-edge to-transparent;
+  }
+  .divider-y {
+    @apply w-px h-full bg-gradient-to-b from-transparent via-edge to-transparent;
+  }
+
+  /* Button — primary ember */
+  .btn-primary {
+    @apply relative inline-flex items-center justify-center gap-2
+           h-10 px-5 rounded-xs
+           font-mono text-[11px] uppercase tracking-widest font-medium
+           bg-ember-500 text-surface-0
+           shadow-ember-glow-sm
+           transition-[transform,background-color,box-shadow] duration-200 ease-spring
+           hover:bg-ember-400 hover:shadow-ember-glow
+           active:scale-[0.98]
+           focus-visible:outline-ember-500;
+  }
+
+  /* Button — ghost */
+  .btn-ghost {
+    @apply relative inline-flex items-center justify-center gap-2
+           h-10 px-5 rounded-xs
+           font-mono text-[11px] uppercase tracking-widest font-medium
+           bg-transparent text-ink-primary border border-edge
+           transition-[background-color,border-color] duration-200
+           hover:bg-surface-3 hover:border-edge-strong;
+  }
+
+  /* Button — minimal nav */
+  .btn-link {
+    @apply font-mono text-[11px] uppercase tracking-widest
+           text-ink-secondary hover:text-ink-primary transition-colors;
+  }
+}
+
+/* Reduce motion: respect users */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
