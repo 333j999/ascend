@@ -16,3 +16,4 @@ dist/
 next-env.d.ts
 .idea
 .vscode
+tsconfig.tsbuildinfo
