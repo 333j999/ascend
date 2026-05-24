@@ -15,7 +15,10 @@ export function applyFormat(v: number, f: ValueFormat = "number"): string {
     case "currency":
       return `$${Math.round(v).toLocaleString()}`;
     case "currencyK":
-      return `$${(v / 1000).toFixed(v >= 100_000 ? 0 : 1)}k`;
+      // Auto-scale: tiny amounts stay in $X form, thousands shorten to $X.Xk
+      if (v < 1000) return `$${Math.round(v)}`;
+      if (v < 10_000) return `$${(v / 1000).toFixed(1)}k`;
+      return `$${Math.round(v / 1000)}k`;
     case "weight":
       return `${v}kg`;
     case "hours":

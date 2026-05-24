@@ -71,6 +71,7 @@ create table if not exists public.habits (
   user_id uuid not null references auth.users on delete cascade,
   name text not null,
   icon text,
+  kind text not null default 'good' check (kind in ('good','bad')),
   target_per_week int default 7,
   streak int default 0,
   best_streak int default 0,

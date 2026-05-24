@@ -81,6 +81,7 @@ export async function getHabits(userId: string): Promise<Habit[]> {
       id: h.id,
       name: h.name,
       icon: h.icon,
+      kind: (h.kind ?? "good") as Habit["kind"],
       streak: h.streak ?? 0,
       best_streak: h.best_streak ?? 0,
       completions_this_week: completions,

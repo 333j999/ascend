@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { ArrowUpRight, ArrowDownRight, Plus, AlertCircle, Calendar, Wallet, TrendingUp } from "lucide-react";
+import { AlertCircle, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Stat } from "@/components/ui/stat";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -10,31 +9,16 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ChartArea } from "@/components/charts/area-chart";
 import { ChartDonut } from "@/components/charts/donut-chart";
 import { FinanceActions } from "@/components/finance/finance-actions";
-import { TransactionTypeFilter } from "@/components/finance/transaction-type-filter";
+import { SavingsGoalCard } from "@/components/finance/savings-goal-card";
+import { TransactionsTable } from "@/components/finance/transactions-table";
 import { getCurrentUser } from "@/lib/supabase/auth";
 import {
   getTransactions, getSavingsGoals, getDebts,
   aggregateMonthlyFlow, aggregateSpendingBreakdown, calculateMonthSummary,
 } from "@/lib/supabase/queries";
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-
-const CATEGORY_TONE: Record<string, string> = {
-  salary: "text-signal-green",
-  business: "text-ember-300",
-  freelance: "text-ember-300",
-  investments: "text-signal-green",
-  rent: "text-ink-secondary",
-  food: "text-ink-secondary",
-  subscriptions: "text-ink-secondary",
-  fitness: "text-ink-secondary",
-  transport: "text-ink-secondary",
-  savings: "text-signal-amber",
-  education: "text-ink-secondary",
-  debt: "text-signal-red",
-  other: "text-ink-muted",
-};
 
 export default async function FinancePage() {
   const user = await getCurrentUser();
@@ -50,13 +34,18 @@ export default async function FinancePage() {
   const monthlyFlow = aggregateMonthlyFlow(transactions);
   const spendingBreakdown = aggregateSpendingBreakdown(transactions);
 
-  // Recurring (any transaction marked recurring)
   const recurring = transactions.filter(t => t.recurring && t.type === "expense").slice(0, 5);
 
-  // Naive net worth = savings - debt
+  // Net worth = (lifetime income − lifetime expenses) + savings.saved − debt.remaining
+  // Subtract savings-category expenses since they're already counted in goal.saved
+  // (contributions logged via Contribute increment goal.saved AND log an expense).
+  const lifetimeIncome = transactions.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const lifetimeExpenses = transactions
+    .filter(t => t.type === "expense" && t.category !== "savings")
+    .reduce((s, t) => s + t.amount, 0);
   const totalSaved = savingsGoals.reduce((s, g) => s + g.saved, 0);
   const totalDebt = debts.reduce((s, d) => s + (d.total - d.paid), 0);
-  const netWorth = totalSaved - totalDebt;
+  const netWorth = (lifetimeIncome - lifetimeExpenses) + totalSaved - totalDebt;
 
   return (
     <div className="space-y-6">
@@ -141,36 +130,8 @@ export default async function FinancePage() {
             action={<FinanceActions onlySavings />}
           />
           {savingsGoals.length > 0 ? (
-            <div className="space-y-6">
-              {savingsGoals.map((g) => {
-                const pct = Math.round((g.saved / g.target) * 100);
-                const remaining = g.target - g.saved;
-                return (
-                  <div key={g.id} className="p-4 rounded-xs bg-surface-3/40 border border-edge-subtle">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="text-ink-primary font-medium">{g.name}</div>
-                        {g.deadline && (
-                          <div className="mt-0.5 font-mono text-[10px] uppercase tracking-widest text-ink-muted inline-flex items-center gap-1">
-                            <Calendar className="size-3" /> Target · {g.deadline}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <div className="stat text-lg text-ink-primary tracking-tight">{formatCurrency(g.saved)}</div>
-                        <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">of {formatCurrency(g.target)}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Progress value={pct} className="flex-1" glow />
-                      <span className="font-mono text-[11px] text-ember-400 tabular-nums w-12 text-right">{pct}%</span>
-                    </div>
-                    <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-ink-muted text-right">
-                      {formatCurrency(remaining)} remaining
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="space-y-3">
+              {savingsGoals.map((g) => <SavingsGoalCard key={g.id} goal={g} />)}
             </div>
           ) : (
             <EmptyState
@@ -238,72 +199,9 @@ export default async function FinancePage() {
         </Card>
       </div>
 
-      {/* Transactions table */}
+      {/* Transactions table — client component with filter + edit/delete */}
       <Card>
-        <CardHeader
-          label="▢ Transactions · recent"
-          title="The ledger"
-          action={<TransactionTypeFilter />}
-        />
-        {transactions.length === 0 ? (
-          <EmptyState
-            icon={<Wallet className="size-5" />}
-            title="The ledger is empty"
-            description="Log your first transaction to start building the picture."
-            action={<FinanceActions compact />}
-          />
-        ) : (
-          <div className="overflow-x-auto -mx-5 px-5">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-edge-subtle">
-                  {["Date","Description","Category","Type","Amount"].map((h, i) => (
-                    <th key={h} className={cn(
-                      "py-2 font-mono text-[10px] uppercase tracking-widest text-ink-muted text-left",
-                      i === 4 && "text-right",
-                    )}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.slice(0, 30).map((t) => (
-                  <tr key={t.id} className="border-b border-edge-subtle/50 last:border-0 hover:bg-surface-3/30 transition-colors">
-                    <td className="py-3 font-mono text-xs text-ink-muted tabular-nums">{t.date.slice(5)}</td>
-                    <td className="py-3 text-sm text-ink-primary">{t.description}</td>
-                    <td className="py-3">
-                      <span className={cn(
-                        "inline-block px-2 py-0.5 rounded-2xs font-mono text-[10px] uppercase tracking-widest",
-                        "bg-surface-3 border border-edge-subtle",
-                        CATEGORY_TONE[t.category] ?? "text-ink-secondary",
-                      )}>
-                        {t.category}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      <span className={cn(
-                        "inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest",
-                        t.type === "income" ? "text-signal-green" : "text-signal-red",
-                      )}>
-                        {t.type === "income"
-                          ? <ArrowUpRight className="size-3" strokeWidth={2.4} />
-                          : <ArrowDownRight className="size-3" strokeWidth={2.4} />}
-                        {t.type}
-                      </span>
-                    </td>
-                    <td className={cn(
-                      "py-3 text-right stat text-sm tabular-nums",
-                      t.type === "income" ? "text-signal-green" : "text-ink-primary",
-                    )}>
-                      {t.type === "income" ? "+" : "−"}${t.amount.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <TransactionsTable transactions={transactions} />
       </Card>
     </div>
   );

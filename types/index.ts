@@ -71,10 +71,13 @@ export interface Mission {
   category?: "work" | "fitness" | "money" | "mind" | "relationships";
 }
 
+export type HabitKind = "good" | "bad";
+
 export interface Habit {
   id: UUID;
   name: string;
   icon?: string;
+  kind: HabitKind;
   streak: number;
   best_streak: number;
   completions_this_week: boolean[]; // length 7, monday-sunday

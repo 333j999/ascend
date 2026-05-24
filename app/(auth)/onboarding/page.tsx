@@ -24,11 +24,11 @@ const FOCUS_OPTIONS: { id: Focus; label: string; desc: string; icon: any }[] = [
   { id: "discipline", label: "Build the Will",      desc: "Habits, discipline, consistency", icon: Check },
 ];
 
-const FITNESS_OPTIONS: { id: Fitness; label: string }[] = [
-  { id: "strength",    label: "Strength" },
-  { id: "hypertrophy", label: "Hypertrophy" },
-  { id: "endurance",   label: "Endurance" },
-  { id: "fat-loss",    label: "Fat Loss" },
+const FITNESS_OPTIONS: { id: Fitness; label: string; short: string }[] = [
+  { id: "strength",    label: "Strength",    short: "Strength" },
+  { id: "hypertrophy", label: "Hypertrophy", short: "Mass" },
+  { id: "endurance",   label: "Endurance",   short: "Endurance" },
+  { id: "fat-loss",    label: "Fat Loss",    short: "Cut" },
 ];
 
 const HABIT_OPTIONS = [
@@ -187,7 +187,7 @@ export default function OnboardingPage() {
                 sub="Pick your primary fitness focus. Add a bodyweight target if you have one."
               >
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                  {FITNESS_OPTIONS.map(({ id, label }) => {
+                  {FITNESS_OPTIONS.map(({ id, label, short }) => {
                     const active = data.fitness === id;
                     return (
                       <button
@@ -195,13 +195,14 @@ export default function OnboardingPage() {
                         type="button"
                         onClick={() => setData(d => ({ ...d, fitness: id }))}
                         className={cn(
-                          "h-14 px-2 rounded-xs border font-mono text-[10px] sm:text-[11px] uppercase tracking-wider sm:tracking-widest transition-all whitespace-nowrap",
+                          "h-14 px-2 rounded-xs border font-mono text-[11px] uppercase tracking-wider transition-all",
                           active
                             ? "border-ember-500/60 bg-ember-500/10 text-ember-300 shadow-ember-glow-sm"
                             : "border-edge-subtle bg-surface-2 text-ink-secondary hover:border-edge",
                         )}
                       >
-                        {label}
+                        <span className="hidden xl:inline">{label}</span>
+                        <span className="xl:hidden">{short}</span>
                       </button>
                     );
                   })}

@@ -24,7 +24,7 @@ const NAV = [
   ]},
 ];
 
-export function Sidebar() {
+export function Sidebar({ streak = 0 }: { streak?: number }) {
   const pathname = usePathname();
 
   return (
@@ -75,15 +75,21 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer card */}
+      {/* Footer card — real streak */}
       <div className="m-3 p-4 rounded-xs border border-edge-subtle bg-surface-2">
         <div className="flex items-center gap-2 mb-2">
-          <span className="ember-dot" />
-          <span className="font-mono text-[10px] uppercase tracking-widest text-ember-400">Streak active</span>
+          {streak > 0 ? (
+            <>
+              <span className="ember-dot" />
+              <span className="font-mono text-[10px] uppercase tracking-widest text-ember-400">Streak active</span>
+            </>
+          ) : (
+            <span className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">No streak</span>
+          )}
         </div>
-        <div className="stat text-2xl text-ink-primary tracking-tightest">47 days</div>
+        <div className="stat text-2xl text-ink-primary tracking-tightest">{streak} {streak === 1 ? "day" : "days"}</div>
         <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted mt-1">
-          Don&rsquo;t break the chain.
+          {streak > 0 ? "Don't break the chain." : "Start today."}
         </div>
       </div>
 

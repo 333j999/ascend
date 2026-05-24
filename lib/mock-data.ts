@@ -110,12 +110,12 @@ export const MOCK_MISSIONS: Mission[] = [
 // ─── Habits ──────────────────────────────────────────────────
 
 export const MOCK_HABITS: Habit[] = [
-  { id: "h1", name: "No screens before 10am", streak: 47, best_streak: 92, completions_this_week: [true,true,true,true,true,true,true], target_per_week: 7 },
-  { id: "h2", name: "Cold plunge", streak: 12, best_streak: 41, completions_this_week: [true,true,true,false,true,true,false], target_per_week: 6 },
-  { id: "h3", name: "Gym", streak: 8, best_streak: 22, completions_this_week: [true,true,false,true,true,true,false], target_per_week: 5 },
-  { id: "h4", name: "Read 30 pages", streak: 23, best_streak: 60, completions_this_week: [true,true,true,true,true,true,true], target_per_week: 7 },
-  { id: "h5", name: "20 cold outreaches", streak: 5, best_streak: 18, completions_this_week: [true,true,true,false,true,true,false], target_per_week: 5 },
-  { id: "h6", name: "Journal entry", streak: 14, best_streak: 31, completions_this_week: [true,false,true,true,true,true,true], target_per_week: 7 },
+  { id: "h1", name: "No screens before 10am", kind: "good", streak: 47, best_streak: 92, completions_this_week: [true,true,true,true,true,true,true], target_per_week: 7 },
+  { id: "h2", name: "Cold plunge", kind: "good", streak: 12, best_streak: 41, completions_this_week: [true,true,true,false,true,true,false], target_per_week: 6 },
+  { id: "h3", name: "Gym", kind: "good", streak: 8, best_streak: 22, completions_this_week: [true,true,false,true,true,true,false], target_per_week: 5 },
+  { id: "h4", name: "Read 30 pages", kind: "good", streak: 23, best_streak: 60, completions_this_week: [true,true,true,true,true,true,true], target_per_week: 7 },
+  { id: "h5", name: "20 cold outreaches", kind: "good", streak: 5, best_streak: 18, completions_this_week: [true,true,true,false,true,true,false], target_per_week: 5 },
+  { id: "h6", name: "Journal entry", kind: "good", streak: 14, best_streak: 31, completions_this_week: [true,false,true,true,true,true,true], target_per_week: 7 },
 ];
 
 // ─── Gym ─────────────────────────────────────────────────────

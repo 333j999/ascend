@@ -40,10 +40,20 @@ export function computeDashboardSummary({
     ? Math.round((missions.filter(m => m.completed).length / missions.length) * 100)
     : 0;
 
-  // Habits — based on today
+  // Habits — split good vs bad
+  // Good habits: % completed today (positive contribution)
+  // Bad habits: each one marked today = penalty
   const dayIndex = (today.getDay() + 6) % 7; // 0 = Monday
-  const habitsToday = habits.filter(h => h.completions_this_week[dayIndex]).length;
-  const habitsPct = habits.length ? Math.round((habitsToday / habits.length) * 100) : 0;
+  const goodHabits = habits.filter(h => h.kind === "good");
+  const badHabits = habits.filter(h => h.kind === "bad");
+  const goodToday = goodHabits.filter(h => h.completions_this_week[dayIndex]).length;
+  const badToday  = badHabits.filter(h => h.completions_this_week[dayIndex]).length;
+
+  // Combined habits "score": good completion ratio, minus a flat 10-point hit per
+  // bad habit triggered today.
+  const goodPct = goodHabits.length ? (goodToday / goodHabits.length) * 100 : 0;
+  const badPenalty = badToday * 10;
+  const habitsPct = Math.max(0, Math.round(goodPct - badPenalty));
 
   // Gym — any workout in last 24h
   const gymToday = workouts.some(w => {

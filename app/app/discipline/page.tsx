@@ -9,6 +9,7 @@ import { RadialScore } from "@/components/ui/radial-score";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ChartArea } from "@/components/charts/area-chart";
 import { StreakHeatmap } from "@/components/charts/streak-heatmap";
+import { HabitsManager } from "@/components/discipline/habits-manager";
 import { getCurrentUser } from "@/lib/supabase/auth";
 import {
   getTransactions, getMissions, getHabits, getWorkouts,
@@ -125,6 +126,11 @@ export default async function DisciplinePage() {
         <Card><Stat label="Elite days · 30d" value={String(eliteDays)} hint={month.length ? `of ${month.length}` : "no data"} /></Card>
         <Card><Stat label="Below 60 · 30d"   value={String(brokenDays)} hint="lower is better" /></Card>
       </div>
+
+      {/* ── Habits — manage here ───────────────────────────── */}
+      <Card>
+        <HabitsManager habits={habits} />
+      </Card>
 
       <div className="grid grid-cols-12 gap-4">
         <Card className="col-span-12 lg:col-span-7">

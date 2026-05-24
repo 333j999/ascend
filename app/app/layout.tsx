@@ -3,20 +3,29 @@ import { Sidebar } from "@/components/app-shell/sidebar";
 import { Topbar } from "@/components/app-shell/topbar";
 import { getCurrentUser } from "@/lib/supabase/auth";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getDisciplineDays } from "@/lib/supabase/queries";
+import { computeDashboardSummary } from "@/lib/discipline";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  // If Supabase is configured, require a user. In preview mode (no env vars),
-  // fall back to an "Operator" placeholder so the UI is browsable.
   let user = { name: "Operator", initials: "OP", avatarUrl: null as string | null };
+  let streak = 0;
+
   if (isSupabaseConfigured()) {
     const current = await getCurrentUser();
     if (!current) redirect("/login");
     user = { name: current.name, initials: current.initials, avatarUrl: current.avatarUrl ?? null };
+
+    // Compute streak from discipline_days for sidebar
+    const discipline = await getDisciplineDays(current.id, 90);
+    const summary = computeDashboardSummary({
+      transactions: [], missions: [], habits: [], workouts: [], bodyMetrics: [], discipline,
+    });
+    streak = summary.currentStreak;
   }
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+      <Sidebar streak={streak} />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar user={user} />
         <main className="flex-1 relative">
