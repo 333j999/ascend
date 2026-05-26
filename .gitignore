@@ -17,3 +17,6 @@ next-env.d.ts
 .idea
 .vscode
 tsconfig.tsbuildinfo
+
+.vercel
+.env*

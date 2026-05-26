@@ -6,27 +6,34 @@ import { getBriefing } from "@/lib/briefing";
 import { renderBriefEmail } from "@/lib/email/brief-template";
 
 /**
- * Vercel Cron entry point — hits every hour at minute 0.
+ * Vercel Cron entry point.
  *
- * For each user opted in to email_brief_enabled, we check the current hour
- * in THEIR timezone. If it's 6am local for them, we send. Otherwise skip.
- * This delivers each user a 6am-local brief without needing per-user cron
- * scheduling on the Vercel side.
+ * Schedule lives in vercel.json. The Vercel Hobby plan caps cron jobs at
+ * once-per-day, so the default schedule is "0 10 * * *" (10am UTC daily).
+ * When fired, we send a brief to every opted-in user — they receive it at
+ * "10am UTC translated to their local time" (6am EST, 11am CET, 6pm SGT…).
  *
- * Auth: Vercel sets the CRON_SECRET env var and includes it as a Bearer token
- * on cron invocations. We verify it before doing any work.
+ * If you upgrade to Vercel Pro (or wire an external hourly trigger such as
+ * cron-job.org or GitHub Actions), change the vercel.json schedule to
+ * "0 * * * *" and set the env var CRON_PER_USER_HOUR=true. The route will
+ * then only send to users whose local hour is currently PER_USER_SEND_HOUR
+ * (6 by default) — true per-user-TZ 6am delivery.
+ *
+ * Auth: Vercel sets CRON_SECRET in env and includes it as a Bearer token
+ * on cron invocations. We verify before doing any work.
  *
  * Required env vars:
- *   - CRON_SECRET                 (auto-set by Vercel, also add to .env.local)
- *   - SUPABASE_SERVICE_ROLE_KEY   (so we can read auth.users emails)
+ *   - CRON_SECRET
+ *   - SUPABASE_SERVICE_ROLE_KEY
  *   - NEXT_PUBLIC_SUPABASE_URL
- *   - RESEND_API_KEY              (from resend.com)
- *   - RESEND_FROM_EMAIL           (e.g. "ASCEND <brief@yourdomain.com>")
- *   - NEXT_PUBLIC_SITE_URL        (e.g. "https://ascend-woad-mu.vercel.app")
+ *   - RESEND_API_KEY
+ *   - RESEND_FROM_EMAIL
+ *   - NEXT_PUBLIC_SITE_URL
  */
 export const dynamic = "force-dynamic";
 
-const SEND_HOUR = 6; // 6am local for each user
+const PER_USER_SEND_HOUR = 6;
+const HOURLY_PER_USER = process.env.CRON_PER_USER_HOUR === "true";
 
 export async function GET(request: Request) {
   // Verify Vercel Cron auth
@@ -48,7 +55,6 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
-  // Pull all opted-in profiles
   const { data: profiles, error } = await admin
     .from("profiles")
     .select("id, timezone, name")
@@ -67,14 +73,14 @@ export async function GET(request: Request) {
   for (const profile of profiles ?? []) {
     const tz = profile.timezone ?? "UTC";
 
-    // Only send when it's 6am in the user's TZ right now.
-    if (hourInTZ(tz) !== SEND_HOUR) {
+    // On hourly schedule (Pro plan / external trigger) only send when it's
+    // 6am in the user's TZ. On default once-daily schedule, send to all.
+    if (HOURLY_PER_USER && hourInTZ(tz) !== PER_USER_SEND_HOUR) {
       skipped.push(profile.id);
       continue;
     }
 
     try {
-      // Fetch the auth.users row to get email
       const { data: { user } } = await admin.auth.admin.getUserById(profile.id);
       if (!user?.email) {
         errors.push({ id: profile.id, error: "no email" });
@@ -105,6 +111,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     ok: true,
+    schedule: HOURLY_PER_USER ? "hourly-per-user" : "daily-batch",
     timestamp: new Date().toISOString(),
     counts: { sent: sent.length, skipped: skipped.length, errors: errors.length },
     sent,
