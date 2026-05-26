@@ -24,18 +24,19 @@ export default async function DisciplinePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  const tz = user.profile?.timezone ?? "UTC";
   const [transactions, missions, habits, workouts, bodyMetrics, discipline, journal] = await Promise.all([
     getTransactions(user.id, 200),
-    getMissions(user.id),
-    getHabits(user.id),
+    getMissions(user.id, tz),
+    getHabits(user.id, tz),
     getWorkouts(user.id, 30),
     getBodyMetrics(user.id, 30),
-    getDisciplineDays(user.id, 90),
+    getDisciplineDays(user.id, 90, tz),
     getJournalEntries(user.id, 5),
   ]);
 
   const summary = computeDashboardSummary({
-    transactions, missions, habits, workouts, bodyMetrics, discipline,
+    transactions, missions, habits, workouts, bodyMetrics, discipline, tz,
   });
 
   const week = discipline.slice(-7);

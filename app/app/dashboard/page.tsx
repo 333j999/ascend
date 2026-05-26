@@ -24,6 +24,9 @@ import {
   aggregateMonthlyFlow, calculateMonthSummary,
 } from "@/lib/supabase/queries";
 import { computeDashboardSummary } from "@/lib/discipline";
+import { getBriefing } from "@/lib/briefing";
+import { BriefingCard } from "@/components/briefing/briefing-card";
+import { hourInTZ } from "@/lib/timezone";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -32,32 +35,40 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  const tz = user.profile?.timezone ?? "UTC";
   const [transactions, savingsGoals, missions, habits, workouts, bodyMetrics, journal, discipline] = await Promise.all([
     getTransactions(user.id, 50),
     getSavingsGoals(user.id),
-    getMissions(user.id),
-    getHabits(user.id),
+    getMissions(user.id, tz),
+    getHabits(user.id, tz),
     getWorkouts(user.id, 5),
     getBodyMetrics(user.id, 6),
     getJournalEntries(user.id, 1),
-    getDisciplineDays(user.id, 90),
+    getDisciplineDays(user.id, 90, tz),
   ]);
 
   const monthSummary = calculateMonthSummary(transactions);
   const monthlyFlow = aggregateMonthlyFlow(transactions);
-  const summary = computeDashboardSummary({ transactions, missions, habits, workouts, bodyMetrics, discipline });
+  const summary = computeDashboardSummary({ transactions, missions, habits, workouts, bodyMetrics, discipline, tz });
   const latestWorkout = workouts[0];
   const latestJournal = journal[0];
 
+  const hour = hourInTZ(tz);
   const greeting = (() => {
-    const h = new Date().getHours();
-    if (h < 5) return "Late night, operator";
-    if (h < 12) return "Good morning";
-    if (h < 18) return "Good afternoon";
+    if (hour < 5) return "Late night, operator";
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
     return "Good evening";
   })();
 
   const firstName = user.name.split(" ")[0];
+
+  // Show the briefing band when it's morning (5am — 12pm local).
+  // Outside that window the dashboard goes straight to KPIs.
+  const showBriefing = hour >= 5 && hour < 12;
+  const briefing = showBriefing
+    ? await getBriefing(user.id, tz)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -80,6 +91,8 @@ export default async function DashboardPage() {
           </div>
         }
       />
+
+      {briefing && <BriefingCard briefing={briefing} firstName={firstName} />}
 
       {/* ── Top KPI row ───────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

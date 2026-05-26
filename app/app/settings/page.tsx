@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ProfileForm } from "@/components/settings/profile-form";
+import { EmailBriefToggle } from "@/components/settings/email-brief-toggle";
 import { getCurrentUser } from "@/lib/supabase/auth";
 
 export const dynamic = "force-dynamic";
@@ -20,24 +21,29 @@ export default async function SettingsPage() {
         subtitle="Profile, targets, integrations, and data — the wiring of your ASCEND deployment."
       />
 
-      <div className="grid grid-cols-12 gap-4">
-        <Card className="col-span-12 lg:col-span-8">
-          <CardHeader label="▢ Profile" title="Identity" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="Name"  defaultValue={user.name} readOnly />
-            <Input label="Email" defaultValue={user.email} type="email" readOnly />
-            <Input label="Timezone" defaultValue={user.profile?.timezone ?? "UTC"} readOnly />
-            <Input label="Primary focus" defaultValue={user.profile?.primary_focus ?? "—"} readOnly />
-          </div>
-          <div className="mt-4 font-mono text-[10px] uppercase tracking-widest text-ink-muted">
-            ◇ Editable profile coming next push — for now, re-run onboarding to update.
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <Button variant="ghost" size="sm" href="/onboarding">Re-run onboarding</Button>
-          </div>
-        </Card>
+      {/* Profile — editable */}
+      <Card>
+        <CardHeader label="▢ Profile" title="Identity & targets" />
+        <ProfileForm email={user.email} profile={user.profile} />
+      </Card>
 
-        <Card className="col-span-12 lg:col-span-4">
+      {/* Email brief toggle */}
+      <Card>
+        <CardHeader
+          label="▢ Daily brief"
+          title="Morning email"
+          action={<Badge tone="ember">Beta</Badge>}
+        />
+        <EmailBriefToggle
+          initial={user.profile?.email_brief_enabled ?? false}
+          email={user.email}
+          timezone={user.profile?.timezone ?? "UTC"}
+        />
+      </Card>
+
+      {/* Plan + integrations + danger zone */}
+      <div className="grid grid-cols-12 gap-4">
+        <Card className="col-span-12 lg:col-span-6">
           <CardHeader label="▢ Plan" title="Recon · Free" />
           <div className="text-sm text-ink-secondary">
             All 6 modules unlocked. Unlimited history.
@@ -53,25 +59,24 @@ export default async function SettingsPage() {
           </Button>
         </Card>
 
-        <Card className="col-span-12">
+        <Card className="col-span-12 lg:col-span-6">
           <CardHeader
             label="▢ Integrations"
             title="Connected systems"
             action={<Badge tone="amber">Coming soon</Badge>}
           />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="space-y-2">
             {[
-              { name: "Spotify",      desc: "Pull listening data into your daily briefing." },
-              { name: "Apple Health", desc: "Sync workouts, sleep, and resting heart rate." },
-              { name: "Plaid",        desc: "Auto-pull transactions from your bank." },
+              { name: "Spotify",      desc: "Listening data → daily brief" },
+              { name: "Apple Health", desc: "Workouts, sleep, heart rate" },
+              { name: "Plaid",        desc: "Auto-pull bank transactions" },
             ].map((i) => (
-              <div key={i.name} className="p-5 rounded-xs border border-edge-subtle bg-surface-3/30">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-medium text-ink-primary">{i.name}</div>
-                  <Badge tone="neutral">Soon</Badge>
+              <div key={i.name} className="flex items-center justify-between p-3 rounded-xs border border-edge-subtle bg-surface-3/30">
+                <div>
+                  <div className="font-medium text-ink-primary text-sm">{i.name}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">{i.desc}</div>
                 </div>
-                <p className="text-sm text-ink-secondary leading-relaxed">{i.desc}</p>
-                <Button variant="ghost" size="sm" className="mt-4" disabled>Connect</Button>
+                <Badge tone="neutral">Soon</Badge>
               </div>
             ))}
           </div>

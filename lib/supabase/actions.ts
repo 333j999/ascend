@@ -28,6 +28,29 @@ function ensureOk<T extends { error: any }>(res: T, op: string): T {
 
 // ── Profile / onboarding ─────────────────────────────────────
 
+/**
+ * Partial profile update — settings page calls this with any subset of fields.
+ * Used for inline edits on /app/settings.
+ */
+export async function updateProfile(input: Partial<{
+  name: string;
+  timezone: string;
+  email_brief_enabled: boolean;
+  income_target_monthly: number;
+  savings_target: number;
+  fitness_focus: string;
+  bodyweight_goal_kg: number;
+  primary_focus: string;
+}>) {
+  const userId = await requireUserId();
+  const supabase = createClient();
+  ensureOk(
+    await supabase.from("profiles").update(input).eq("id", userId),
+    "updateProfile",
+  );
+  revalidatePath("/app", "layout");
+}
+
 export async function saveProfile(input: {
   income_target_monthly?: number;
   savings_target?: number;
@@ -35,6 +58,7 @@ export async function saveProfile(input: {
   bodyweight_goal_kg?: number;
   daily_habits?: string[];
   primary_focus?: string;
+  timezone?: string;
 }) {
   const userId = await requireUserId();
   const supabase = createClient();
@@ -49,6 +73,7 @@ export async function saveProfile(input: {
         bodyweight_goal_kg: input.bodyweight_goal_kg,
         daily_habits: input.daily_habits,
         primary_focus: input.primary_focus,
+        ...(input.timezone ? { timezone: input.timezone } : {}),
       })
       .eq("id", userId),
     "saveProfile.update",

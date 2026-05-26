@@ -11,6 +11,7 @@ create table if not exists public.profiles (
   name text,
   avatar_url text,
   timezone text default 'UTC',
+  email_brief_enabled boolean not null default false,
   joined_at timestamptz default now(),
   -- onboarding goals
   income_target_monthly numeric,

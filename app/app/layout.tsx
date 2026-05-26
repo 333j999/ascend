@@ -15,10 +15,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     if (!current) redirect("/login");
     user = { name: current.name, initials: current.initials, avatarUrl: current.avatarUrl ?? null };
 
-    // Compute streak from discipline_days for sidebar
-    const discipline = await getDisciplineDays(current.id, 90);
+    const tz = current.profile?.timezone ?? "UTC";
+    const discipline = await getDisciplineDays(current.id, 90, tz);
     const summary = computeDashboardSummary({
-      transactions: [], missions: [], habits: [], workouts: [], bodyMetrics: [], discipline,
+      transactions: [], missions: [], habits: [], workouts: [], bodyMetrics: [], discipline, tz,
     });
     streak = summary.currentStreak;
   }

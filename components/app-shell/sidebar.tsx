@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Banknote, Target, Dumbbell,
-  BrainCircuit, ShieldCheck, LineChart, Settings,
+  BrainCircuit, ShieldCheck, LineChart, Settings, Sunrise,
 } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { SignOutButton } from "@/components/app-shell/sign-out-button";
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { section: "Overview", items: [
     { href: "/app/dashboard", label: "Dashboard",  icon: LayoutDashboard, code: "01" },
+    { href: "/app/briefing",  label: "Daily Brief", icon: Sunrise,        code: "02" },
   ]},
   { section: "Modules", items: [
     { href: "/app/finance",    label: "Financial",  icon: Banknote,      code: "02" },

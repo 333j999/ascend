@@ -15,6 +15,7 @@ export type Profile = {
   name: string | null;
   avatar_url: string | null;
   timezone: string | null;
+  email_brief_enabled: boolean | null;
   income_target_monthly: number | null;
   savings_target: number | null;
   fitness_focus: string | null;

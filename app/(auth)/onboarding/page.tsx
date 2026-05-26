@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { saveProfile } from "@/lib/supabase/actions";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { detectBrowserTZ } from "@/lib/timezone";
 
 type Focus = "money" | "fitness" | "business" | "skills" | "discipline";
 type Fitness = "strength" | "hypertrophy" | "endurance" | "fat-loss";
@@ -74,6 +75,7 @@ export default function OnboardingPage() {
           fitness_focus: data.fitness,
           bodyweight_goal_kg: data.bodyweight,
           daily_habits: data.habits,
+          timezone: detectBrowserTZ(),
         });
         router.push("/app/dashboard");
       } catch (e: any) {

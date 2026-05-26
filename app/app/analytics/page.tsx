@@ -22,19 +22,20 @@ export default async function AnalyticsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  const tz = user.profile?.timezone ?? "UTC";
   const [transactions, missions, habits, workouts, bodyMetrics, discipline, journal, savingsGoals, debts] = await Promise.all([
     getTransactions(user.id, 500),
-    getMissions(user.id),
-    getHabits(user.id),
+    getMissions(user.id, tz),
+    getHabits(user.id, tz),
     getWorkouts(user.id, 100),
     getBodyMetrics(user.id, 365),
-    getDisciplineDays(user.id, 365),
+    getDisciplineDays(user.id, 365, tz),
     getJournalEntries(user.id, 100),
     getSavingsGoals(user.id),
     getDebts(user.id),
   ]);
 
-  const summary = computeDashboardSummary({ transactions, missions, habits, workouts, bodyMetrics, discipline });
+  const summary = computeDashboardSummary({ transactions, missions, habits, workouts, bodyMetrics, discipline, tz });
   const monthlyFlow = aggregateMonthlyFlow(transactions, 7);
   const productivity = computeMonthlyProductivity({ missions, workouts, journal });
   const habitSuccess = habits.map(h => ({

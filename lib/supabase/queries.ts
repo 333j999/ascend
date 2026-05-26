@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { toLocalISODate } from "@/lib/utils";
+import { todayInTZ, mondayInTZ, daysAgoInTZ } from "@/lib/timezone";
 import type {
   Transaction, Mission, Habit, Workout, BodyMetric,
   JournalEntry, SavingsGoal, Debt, DisciplineDay,
@@ -38,16 +38,15 @@ export async function getDebts(userId: string): Promise<Debt[]> {
   return (data ?? []) as Debt[];
 }
 
-export async function getMissions(userId: string, today = todayISO()): Promise<Mission[]> {
+export async function getMissions(userId: string, tz: string = "UTC"): Promise<Mission[]> {
   const supabase = createClient();
-  // We use a wide ±24h window in UTC to capture any timezone the user might be in,
-  // then trust the client (or downstream filter) to scope properly.
-  // For now this is "today plus an extra day either side" so users in any TZ see
-  // the right set even if server is on UTC.
-  const start = new Date(today + "T00:00:00");
-  start.setHours(start.getHours() - 12);
-  const end = new Date(today + "T23:59:59");
-  end.setHours(end.getHours() + 12);
+  const today = todayInTZ(tz);
+  // ±12h window in UTC around the user's "today" — comfortably brackets
+  // any timezone offset so we never miss a row at day-boundary.
+  const start = new Date(today + "T00:00:00.000Z");
+  start.setUTCHours(start.getUTCHours() - 14);
+  const end = new Date(today + "T23:59:59.999Z");
+  end.setUTCHours(end.getUTCHours() + 14);
   const { data } = await supabase
     .from("missions")
     .select("*")
@@ -58,7 +57,7 @@ export async function getMissions(userId: string, today = todayISO()): Promise<M
   return (data ?? []) as Mission[];
 }
 
-export async function getHabits(userId: string): Promise<Habit[]> {
+export async function getHabits(userId: string, tz: string = "UTC"): Promise<Habit[]> {
   const supabase = createClient();
   const { data: habits } = await supabase
     .from("habits")
@@ -68,22 +67,27 @@ export async function getHabits(userId: string): Promise<Habit[]> {
 
   if (!habits || habits.length === 0) return [];
 
-  // get this week's completions for each habit
-  const weekStart = mondayOfThisWeek();
+  // Compute this week's 7 days using the user's TZ
+  const mondayIso = mondayInTZ(tz);
+  const weekDays: string[] = [];
+  const mondayDate = new Date(mondayIso + "T00:00:00.000Z");
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mondayDate);
+    d.setUTCDate(mondayDate.getUTCDate() + i);
+    weekDays.push(d.toISOString().slice(0, 10));
+  }
+
   const { data: logs } = await supabase
     .from("habit_logs")
     .select("*")
     .eq("user_id", userId)
-    .gte("date", toLocalISODate(weekStart));
+    .gte("date", weekDays[0]);
 
   return habits.map((h: any) => {
     const days = (logs ?? []).filter((l: any) => l.habit_id === h.id);
-    const completions: boolean[] = Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date(weekStart);
-      d.setDate(d.getDate() + i);
-      const iso = toLocalISODate(d);
-      return days.some((l: any) => l.date === iso && l.completed);
-    });
+    const completions: boolean[] = weekDays.map((iso) =>
+      days.some((l: any) => l.date === iso && l.completed),
+    );
     return {
       id: h.id,
       name: h.name,
@@ -137,31 +141,16 @@ export async function getJournalEntries(userId: string, limit = 30): Promise<Jou
   return (data ?? []) as JournalEntry[];
 }
 
-export async function getDisciplineDays(userId: string, days = 90): Promise<DisciplineDay[]> {
+export async function getDisciplineDays(userId: string, days = 90, tz: string = "UTC"): Promise<DisciplineDay[]> {
   const supabase = createClient();
-  const since = new Date(); since.setDate(since.getDate() - days);
+  const sinceIso = daysAgoInTZ(days, tz);
   const { data } = await supabase
     .from("discipline_days")
     .select("*")
     .eq("user_id", userId)
-    .gte("date", toLocalISODate(since))
+    .gte("date", sinceIso)
     .order("date", { ascending: true });
   return (data ?? []) as DisciplineDay[];
-}
-
-// ── helpers ─────────────────────────────────────────────────
-
-function todayISO(): string {
-  return toLocalISODate(new Date());
-}
-
-function mondayOfThisWeek(): Date {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
 }
 
 // ── aggregate helpers ───────────────────────────────────────

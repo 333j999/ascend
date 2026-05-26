@@ -21,10 +21,11 @@ export default async function MissionsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  const tz = user.profile?.timezone ?? "UTC";
   const [missions, habits, discipline] = await Promise.all([
-    getMissions(user.id),
-    getHabits(user.id),
-    getDisciplineDays(user.id, 90),
+    getMissions(user.id, tz),
+    getHabits(user.id, tz),
+    getDisciplineDays(user.id, 90, tz),
   ]);
 
   const completedToday = missions.filter(m => m.completed).length;
@@ -32,7 +33,7 @@ export default async function MissionsPage() {
   const today = new Date();
   const week = computeWeekTempo(discipline);
   const summary = computeDashboardSummary({
-    transactions: [], missions, habits, workouts: [], bodyMetrics: [], discipline,
+    transactions: [], missions, habits, workouts: [], bodyMetrics: [], discipline, tz,
   });
 
   return (

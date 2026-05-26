@@ -1,7 +1,7 @@
 import type {
   Transaction, Mission, Habit, Workout, BodyMetric, DisciplineDay,
 } from "@/types";
-import { toLocalISODate } from "@/lib/utils";
+import { todayInTZ, mondayDayIndexInTZ } from "@/lib/timezone";
 
 export type DashboardSummary = {
   hasAnyData: boolean;
@@ -25,7 +25,7 @@ export type DashboardSummary = {
  *   journal     5  (mood logged today — derived from discipline_days)
  */
 export function computeDashboardSummary({
-  transactions, missions, habits, workouts, bodyMetrics, discipline,
+  transactions, missions, habits, workouts, bodyMetrics, discipline, tz = "UTC",
 }: {
   transactions: Transaction[];
   missions: Mission[];
@@ -33,40 +33,29 @@ export function computeDashboardSummary({
   workouts: Workout[];
   bodyMetrics: BodyMetric[];
   discipline: DisciplineDay[];
+  tz?: string;
 }): DashboardSummary {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayIso = todayInTZ(tz);
 
-  // Missions
   const missionsPct = missions.length
     ? Math.round((missions.filter(m => m.completed).length / missions.length) * 100)
     : 0;
 
-  // Habits — split good vs bad
-  // Good habits: % completed today (positive contribution)
-  // Bad habits: each one marked today = penalty
-  const dayIndex = (today.getDay() + 6) % 7; // 0 = Monday
+  // dayIndex within "this week" in the user's TZ (0 = Monday)
+  const dayIndex = mondayDayIndexInTZ(new Date(), tz);
   const goodHabits = habits.filter(h => h.kind === "good");
   const badHabits = habits.filter(h => h.kind === "bad");
   const goodToday = goodHabits.filter(h => h.completions_this_week[dayIndex]).length;
   const badToday  = badHabits.filter(h => h.completions_this_week[dayIndex]).length;
 
-  // Combined habits "score": good completion ratio, minus a flat 10-point hit per
-  // bad habit triggered today.
   const goodPct = goodHabits.length ? (goodToday / goodHabits.length) * 100 : 0;
   const badPenalty = badToday * 10;
   const habitsPct = Math.max(0, Math.round(goodPct - badPenalty));
 
-  // Gym — any workout in last 24h
-  const gymToday = workouts.some(w => {
-    const d = new Date(w.date); d.setHours(0, 0, 0, 0);
-    return d.getTime() === today.getTime();
-  });
-
-  // Finance — any transaction logged today
-  const financeToday = transactions.some(t => {
-    const d = new Date(t.date); d.setHours(0, 0, 0, 0);
-    return d.getTime() === today.getTime();
-  });
+  // Date-string comparisons — robust across timezones since both the stored
+  // date and todayIso are computed in the user's local TZ.
+  const gymToday = workouts.some(w => w.date === todayIso);
+  const financeToday = transactions.some(t => t.date === todayIso);
 
   // Sleep — most recent body metric
   const latestBody = bodyMetrics.at(-1);
@@ -80,8 +69,6 @@ export function computeDashboardSummary({
   if (gymToday) score += 15;
   if (sleepOk) score += 15;
   if (financeToday) score += 10;
-  // 5 pts journal — proxy: any non-zero discipline_days entry today
-  const todayIso = toLocalISODate(today);
   const todayRow = discipline.find(d => d.date === todayIso);
   if (todayRow) score += 5;
 

@@ -200,3 +200,73 @@ After all six steps:
 - The "Exit" button in the sidebar actually signs them out
 
 You're shipped.
+
+---
+
+## 7. (Optional) Daily morning brief by email
+
+ASCEND can send each user a 6am-local email with yesterday's score, today's
+missions, and the habits they still owe. Setup is ~10 minutes and free at
+small scale.
+
+### 7a. Run the migration
+
+Open the Supabase SQL editor and run [lib/supabase/migrations/002_profile_email_brief.sql](lib/supabase/migrations/002_profile_email_brief.sql).
+This adds the `email_brief_enabled` column on `profiles`.
+
+### 7b. Set up Resend
+
+1. Go to https://resend.com and sign up (free — 3,000 emails/month).
+2. **API Keys** → **Create API Key** → name it `ASCEND production`, scope `Full access`. Copy it.
+3. **Domains** → either:
+   - **Use the shared sender** for testing: leave `RESEND_FROM_EMAIL` as `ASCEND <onboarding@resend.dev>`. Emails work but go to spam easily.
+   - **Verify your own domain** for production: add your domain, follow the DNS instructions, then set `RESEND_FROM_EMAIL` to e.g. `ASCEND <brief@yourdomain.com>`.
+
+### 7c. Add the env vars to Vercel
+
+Project → Settings → Environment Variables. Add:
+
+| Name | Value | Notes |
+|---|---|---|
+| `RESEND_API_KEY` | `re_xxx...` | from step 7b |
+| `RESEND_FROM_EMAIL` | `ASCEND <onboarding@resend.dev>` | or your verified domain |
+| `SUPABASE_SERVICE_ROLE_KEY` | from Supabase → Project Settings → API → **service_role** key | server-only, never exposed |
+| `NEXT_PUBLIC_SITE_URL` | your Vercel URL | used for links inside emails |
+| `CRON_SECRET` | any random string (e.g. `openssl rand -hex 32`) | also added by Vercel automatically when crons exist, but pin it yourself for safety |
+
+Click **Save** → trigger a redeploy from the Deployments tab.
+
+### 7d. Verify the cron
+
+After redeploy, in Vercel → Project → **Settings → Cron Jobs**, you should
+see `/api/cron/daily-brief` listed with schedule `0 * * * *` (every hour at :00).
+
+Test it manually right now (use the live URL):
+
+```bash
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  https://your-app.vercel.app/api/cron/daily-brief
+```
+
+You should get back a JSON like:
+```
+{ "ok": true, "counts": { "sent": 0, "skipped": N, "errors": 0 } }
+```
+
+(`sent: 0` is correct unless it happens to be 6am local for an opted-in user
+right now. `skipped` counts users it's not currently their morning hour.)
+
+### 7e. Opt yourself in
+
+Open https://your-app.vercel.app/app/settings → toggle on **Daily morning brief**.
+
+At 6am your local time tomorrow, you'll get the email. To test sooner, change
+your timezone in Settings to one where it's currently 6am (e.g. if it's 6pm
+EST, pick a TZ that's 12 hours ahead), wait for the next top-of-hour, and
+the cron will pick you up.
+
+### Notes
+
+- **Hobby tier limit**: Vercel Hobby allows hourly crons. If you hit a limit, change the schedule in `vercel.json` to `"0 11 * * *"` (once daily at 11am UTC) and accept that everyone gets the brief at that fixed UTC time regardless of TZ.
+- **Email deliverability**: Without a verified domain, ~50% of emails land in spam. For real production use, verify your own domain in Resend.
+- **Per-user editing**: Users can toggle the brief on/off anytime from Settings. Their timezone is auto-detected on onboarding and editable in Settings.
