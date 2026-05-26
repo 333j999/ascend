@@ -198,6 +198,74 @@ export async function deleteSavingsGoal(id: string) {
   revalidatePath("/app", "layout");
 }
 
+// ── Debts ────────────────────────────────────────────────────
+
+export async function addDebt(input: {
+  lender: string;
+  total: number;
+  paid?: number;
+  monthly_payment?: number;
+  interest_rate?: number;
+}) {
+  const userId = await requireUserId();
+  if (!input.lender.trim()) throw new Error("Lender required.");
+  if (input.total <= 0) throw new Error("Total must be greater than zero.");
+  const supabase = createClient();
+  ensureOk(
+    await supabase.from("debts").insert({
+      user_id: userId,
+      lender: input.lender,
+      total: input.total,
+      paid: input.paid ?? 0,
+      monthly_payment: input.monthly_payment,
+      interest_rate: input.interest_rate,
+    }),
+    "addDebt",
+  );
+  revalidatePath("/app", "layout");
+}
+
+export async function payDebt(debtId: string, amount: number) {
+  const userId = await requireUserId();
+  if (amount <= 0) throw new Error("Amount must be positive.");
+  const supabase = createClient();
+
+  const { data: debt, error } = await supabase
+    .from("debts").select("*").eq("id", debtId).eq("user_id", userId).single();
+  if (error) throw new Error(`payDebt.fetch: ${error.message}`);
+  if (!debt) throw new Error("Debt not found.");
+
+  ensureOk(
+    await supabase
+      .from("debts")
+      .update({ paid: Number(debt.paid) + amount })
+      .eq("id", debtId),
+    "payDebt.update",
+  );
+
+  // Log the payment as a debt-category expense in the ledger
+  ensureOk(
+    await supabase.from("transactions").insert({
+      user_id: userId,
+      date: toLocalISODate(new Date()),
+      amount,
+      type: "expense",
+      category: "debt",
+      description: `Payment → ${debt.lender}`,
+    }),
+    "payDebt.logTxn",
+  );
+
+  revalidatePath("/app", "layout");
+}
+
+export async function deleteDebt(id: string) {
+  await requireUserId();
+  const supabase = createClient();
+  ensureOk(await supabase.from("debts").delete().eq("id", id), "deleteDebt");
+  revalidatePath("/app", "layout");
+}
+
 // ── Missions ─────────────────────────────────────────────────
 
 export async function addMission(input: {

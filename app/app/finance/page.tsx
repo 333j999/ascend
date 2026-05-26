@@ -3,13 +3,13 @@ import { AlertCircle, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Stat } from "@/components/ui/stat";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ChartArea } from "@/components/charts/area-chart";
 import { ChartDonut } from "@/components/charts/donut-chart";
 import { FinanceActions } from "@/components/finance/finance-actions";
 import { SavingsGoalCard } from "@/components/finance/savings-goal-card";
+import { DebtCard } from "@/components/finance/debt-card";
 import { TransactionsTable } from "@/components/finance/transactions-table";
 import { getCurrentUser } from "@/lib/supabase/auth";
 import {
@@ -146,33 +146,25 @@ export default async function FinancePage() {
           <CardHeader
             label="▢ Debt · payoff schedule"
             title="What you owe"
-            action={debts.length > 0 && <Badge tone="amber"><AlertCircle className="size-3" /> {debts.length} active</Badge>}
+            action={
+              <div className="flex items-center gap-2">
+                {debts.length > 0 && (
+                  <Badge tone="amber"><AlertCircle className="size-3" /> {debts.length} active</Badge>
+                )}
+                <FinanceActions onlyDebt />
+              </div>
+            }
           />
           {debts.length > 0 ? (
-            <div className="space-y-5">
-              {debts.map((d) => {
-                const pct = Math.round((d.paid / d.total) * 100);
-                return (
-                  <div key={d.id}>
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <div className="text-sm text-ink-primary">{d.lender}</div>
-                        <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">
-                          {d.interest_rate}% APR{d.monthly_payment ? ` · $${d.monthly_payment}/mo` : ""}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="stat text-sm text-ink-primary">{formatCurrency(d.total - d.paid)}</div>
-                        <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">remaining</div>
-                      </div>
-                    </div>
-                    <Progress value={pct} />
-                  </div>
-                );
-              })}
+            <div className="space-y-3">
+              {debts.map((d) => <DebtCard key={d.id} debt={d} />)}
             </div>
           ) : (
-            <EmptyState title="No debts tracked" description="Add via the Supabase table editor for now — debt management coming as a follow-up." />
+            <EmptyState
+              title="No debts tracked"
+              description="Track each one. Pay them down. Watch the bars shrink."
+              action={<FinanceActions onlyDebt />}
+            />
           )}
 
           <div className="divider-x my-6" />

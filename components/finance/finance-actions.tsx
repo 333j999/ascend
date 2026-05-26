@@ -5,16 +5,20 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddTransactionModal } from "@/components/modals/add-transaction";
 import { AddSavingsGoalModal } from "@/components/modals/add-savings-goal";
+import { AddDebtModal } from "@/components/modals/add-debt";
 
 export function FinanceActions({
   compact = false,
   onlySavings = false,
+  onlyDebt = false,
 }: {
   compact?: boolean;
   onlySavings?: boolean;
+  onlyDebt?: boolean;
 }) {
   const [txOpen, setTxOpen] = useState(false);
   const [goalOpen, setGoalOpen] = useState(false);
+  const [debtOpen, setDebtOpen] = useState(false);
 
   if (onlySavings) {
     return (
@@ -23,6 +27,17 @@ export function FinanceActions({
           <Plus className="size-3.5" /> New goal
         </Button>
         <AddSavingsGoalModal open={goalOpen} onClose={() => setGoalOpen(false)} />
+      </>
+    );
+  }
+
+  if (onlyDebt) {
+    return (
+      <>
+        <Button variant="ghost" size="sm" onClick={() => setDebtOpen(true)}>
+          <Plus className="size-3.5" /> Track debt
+        </Button>
+        <AddDebtModal open={debtOpen} onClose={() => setDebtOpen(false)} />
       </>
     );
   }
@@ -40,6 +55,9 @@ export function FinanceActions({
 
   return (
     <div className="flex items-center gap-2">
+      <Button variant="ghost" size="sm" onClick={() => setDebtOpen(true)}>
+        <Plus className="size-3.5" /> Debt
+      </Button>
       <Button variant="ghost" size="sm" onClick={() => setGoalOpen(true)}>
         <Plus className="size-3.5" /> Goal
       </Button>
@@ -48,6 +66,7 @@ export function FinanceActions({
       </Button>
       <AddTransactionModal open={txOpen} onClose={() => setTxOpen(false)} />
       <AddSavingsGoalModal open={goalOpen} onClose={() => setGoalOpen(false)} />
+      <AddDebtModal open={debtOpen} onClose={() => setDebtOpen(false)} />
     </div>
   );
 }
